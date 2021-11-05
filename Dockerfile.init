@@ -1,0 +1,3 @@
+FROM alpine:latest
+
+RUN apk add -u iptables --no-cache > /dev/null

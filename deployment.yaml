@@ -1,0 +1,162 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: testapp-test-0
+spec:
+  ports:
+  - port: 5000
+    protocol: TCP
+    targetPort: 5000
+  selector:
+    app: testapp-test-0
+  type: LoadBalancer
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  # annotations:
+  #   sidecar.jaegertracing.io/inject: 'true'                                                                                                                                            
+  labels:                                                                                                                                                                                                   
+    app: testapp-test-0
+  name: testapp-test-0
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: testapp-test-0
+  template:
+    metadata:
+      labels:
+        app: testapp-test-0
+    spec:
+      containers:
+      - image: ratnadeepb/testapp:jaeger
+        name: testapp-test-0
+        ports:
+        - containerPort: 5000
+      - image: ratnadeepb/micoproxy:latest
+        name: micoproxy
+        ports:
+        - containerPort: 62081
+        - containerPort: 62082
+        securityContext:
+          runAsUser: 2102
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      initContainers:
+      - name: mico-init1
+        command: ['iptables', '-t', 'nat', '-N', 'PROXY_INIT_REDIRECT']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init2
+        command: ['iptables', '-t', 'nat', '-A', 'PREROUTING', '-p', 'tcp', '-j', 'PROXY_INIT_REDIRECT']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init3
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_REDIRECT', '-p', 'tcp', '-j', 'REDIRECT', '--to-port', '62081']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init4
+        command: ['iptables', '-t', 'nat', '-N', 'PROXY_INIT_OUTPUT']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init5
+        command: ['iptables', '-t', 'nat', '-A', 'OUTPUT', '-j', 'PROXY_INIT_OUTPUT']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init6
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-m', 'owner', '--uid-owner', '2102', '-j', 'RETURN']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init7
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-o', 'lo', '-j', 'RETURN']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init8
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-p', 'tcp', '-j', 'REDIRECT', '--to-port', '62082']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init9
+        command: ['iptables', '-t', 'nat', '-L']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
