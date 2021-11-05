@@ -16,7 +16,7 @@ sudo docker push ratnadeepb/micoinit:latest
 
 ## Running the MiCo tool
 
-```
+```bash
 kubectl apply -f deployment.yaml
 ```
 
