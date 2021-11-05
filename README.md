@@ -1,5 +1,7 @@
 # Simple MiCoProxy Sidecar Proxy
 
+The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy)
+
 ## Building the Proxy
 
 ```bash
