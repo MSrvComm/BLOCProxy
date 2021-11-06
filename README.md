@@ -1,6 +1,6 @@
 # Simple MiCoProxy Sidecar Proxy
 
-The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy)
+The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy) and this [talk](https://www.youtube.com/watch?v=tWSmUsYLiE4)
 
 ## Building the Proxy
 
