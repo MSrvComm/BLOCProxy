@@ -9,7 +9,8 @@ iptables -t nat -N PROXY_INIT_REDIRECT
 iptables -t nat -A PREROUTING -j PROXY_INIT_REDIRECT
 
 # ignore packets whose destination ports are in the list
-# iptables -t nat -A PROXY_INIT_REDIRECT -p tcp --match multiport --dports <ports> -j RETURN
+# ignoring requests going out to epwatcher
+iptables -t nat -A PROXY_INIT_REDIRECT -p tcp --match multiport --dports 30000 -j RETURN
 
 # configure iptables to redirect everything to port 62081
 iptables -t nat -A PROXY_INIT_REDIRECT -p tcp -j REDIRECT --to-port 62081
