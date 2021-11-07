@@ -79,9 +79,8 @@ func addService(s string) {
 	found := false
 
 	// if the request is being made to epwatcher then it will create an infinite loop otherwise
-	// we also set a rule that any request to and from port 30000 is to be ignored
+	// we also set a rule that any request to port 30000 is to be ignored
 	if strings.Contains(s, "epwatcher") {
-		log.Println("addService epwatcher returning") // debug
 		return
 	}
 
