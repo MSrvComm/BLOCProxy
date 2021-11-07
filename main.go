@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -72,6 +73,29 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
+func addService(s string) {
+	// add the service we are looking for to the list of services
+	// assumes we only ever make requests to internal servers
+	found := false
+
+	// if the request is being made to epwatcher then it will create an infinite loop otherwise
+	// we also set a rule that any request to and from port 30000 is to be ignored
+	if strings.Contains(s, "epwatcher") {
+		log.Println("addService epwatcher returning") // debug
+		return
+	}
+
+	for _, svc := range svcList {
+		if svc == s {
+			found = true
+			break
+		}
+	}
+	if !found {
+		svcList = append(svcList, s)
+	}
+}
+
 func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: implement load balancing here
@@ -81,6 +105,8 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	r.URL.Scheme = "http"
 	r.URL.Host = r.Host
 	r.RequestURI = ""
+
+	addService(r.Host) // add service to list of services
 
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
@@ -162,6 +188,12 @@ func main() {
 	inMux := http.NewServeMux()
 	inMux.HandleFunc("/", proxy.handle)
 	inMux.HandleFunc("/stats", getStats)
+
+	// start running the communication server
+	done := make(chan bool)
+	defer close(done)
+	go runComm(done)
+
 	go func() { log.Fatal(http.ListenAndServe(PROXYINPORT, inMux)) }()
 	log.Fatal(http.ListenAndServe(PROXYOUTPORT, outMux))
 }
