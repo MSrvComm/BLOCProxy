@@ -33,6 +33,7 @@ spec:
     spec:
       containers:
       - image: ratnadeepb/testapp:jaeger
+        imagePullPolicy: Always
         name: testapp-test-0
         ports:
         - containerPort: 5000
@@ -101,7 +102,7 @@ spec:
             - ALL
           privileged: true
       - name: mico-init5
-        command: ['iptables', '-t', 'nat', '-A', 'OUTPUT', '-j', 'PROXY_INIT_OUTPUT']
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-p', 'tcp', '--match', 'multiport', '--dports', '30000', '-j', 'RETURN']
         image: ratnadeepb/micoinit:latest
         securityContext:
           allowPrivilegeEscalation: true
@@ -113,7 +114,7 @@ spec:
             - ALL
           privileged: true
       - name: mico-init6
-        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-m', 'owner', '--uid-owner', '2102', '-j', 'RETURN']
+        command: ['iptables', '-t', 'nat', '-A', 'OUTPUT', '-j', 'PROXY_INIT_OUTPUT']
         image: ratnadeepb/micoinit:latest
         securityContext:
           allowPrivilegeEscalation: true
@@ -125,7 +126,7 @@ spec:
             - ALL
           privileged: true
       - name: mico-init7
-        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-o', 'lo', '-j', 'RETURN']
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-m', 'owner', '--uid-owner', '2102', '-j', 'RETURN']
         image: ratnadeepb/micoinit:latest
         securityContext:
           allowPrivilegeEscalation: true
@@ -137,7 +138,7 @@ spec:
             - ALL
           privileged: true
       - name: mico-init8
-        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-p', 'tcp', '-j', 'REDIRECT', '--to-port', '62082']
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-o', 'lo', '-j', 'RETURN']
         image: ratnadeepb/micoinit:latest
         securityContext:
           allowPrivilegeEscalation: true
@@ -149,6 +150,18 @@ spec:
             - ALL
           privileged: true
       - name: mico-init9
+        command: ['iptables', '-t', 'nat', '-A', 'PROXY_INIT_OUTPUT', '-p', 'tcp', '-j', 'REDIRECT', '--to-port', '62082']
+        image: ratnadeepb/micoinit:latest
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            add:
+            - NET_ADMIN
+            - NET_RAW
+            drop:
+            - ALL
+          privileged: true
+      - name: mico-init10
         command: ['iptables', '-t', 'nat', '-L']
         image: ratnadeepb/micoinit:latest
         securityContext:
