@@ -105,7 +105,10 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	r.URL.Host = r.Host
 	r.RequestURI = ""
 
-	addService(r.Host) // add service to list of services
+	svc, _, err := net.SplitHostPort(r.Host)
+	if err == nil {
+		addService(svc) // add service to list of services
+	} // else we just wing it
 
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
