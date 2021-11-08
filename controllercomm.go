@@ -14,7 +14,8 @@ type endpoint struct {
 }
 
 var (
-	svcList   = []string{""}              // names of all services
+	svcList = []string{""} // names of all services
+	// endpoints should be invalidated based on some policy
 	endpoints = make(map[string][]string) // all endpoints for all services
 )
 
