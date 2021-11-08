@@ -26,7 +26,7 @@ var (
 
 // used for timing
 type PathStats struct {
-	Path      string
+	// Path      string
 	Count     int
 	totalTime int64
 	RTT       int64
@@ -73,7 +73,7 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
-func addService(s string) {
+func addService(s string) bool {
 	// add the service we are looking for to the list of services
 	// assumes we only ever make requests to internal servers
 	found := false
@@ -81,7 +81,7 @@ func addService(s string) {
 	// if the request is being made to epwatcher then it will create an infinite loop otherwise
 	// we also set a rule that any request to port 30000 is to be ignored
 	if strings.Contains(s, "epwatcher") {
-		return
+		return true
 	}
 
 	for _, svc := range svcList {
@@ -93,27 +93,44 @@ func addService(s string) {
 	if !found {
 		svcList = append(svcList, s)
 	}
+	return found
 }
 
 func handleOutgoing(w http.ResponseWriter, r *http.Request) {
+	// key := r.Method + r.URL.Path // used for timing
 
-	// TODO: implement load balancing here
-
-	key := r.Method + r.URL.Path // used for timing
-	start := time.Now()          // used for timing
 	r.URL.Scheme = "http"
-	r.URL.Host = r.Host
+	// r.URL.Host = r.Host
 	r.RequestURI = ""
 
-	svc, _, err := net.SplitHostPort(r.Host)
+	svc, port, err := net.SplitHostPort(r.Host)
 	if err == nil {
-		addService(svc) // add service to list of services
+		found := addService(svc) // add service to list of services
+		if !found {              // first request to service
+			getEndpoints(svc)
+		}
 	} // else we just wing it
 
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
 
+	backend, err := NextEndpoint(svc)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, err.Error())
+		return
+	}
+
+	r.URL.Host = net.JoinHostPort(backend.ip, port)                           // use the ip directly
+	backend.reqs += 1                                                         // a new open request
+	log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
+
+	start := time.Now() // used for timing
 	response, err := http.DefaultClient.Do(r)
+	elapsed := time.Since(start) // used for timing
+
+	backend.reqs -= 1 // a request closed
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
@@ -158,8 +175,8 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// close(done)
 
-	elapsed := time.Since(start) // used for timing
-	if val, ok := globalMap[key]; ok {
+	// if val, ok := globalMap[key]; ok {
+	if val, ok := globalMap[svc]; ok {
 		val.Count += 1
 		val.RTT = elapsed.Nanoseconds()
 		val.totalTime += val.RTT
@@ -170,8 +187,12 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		m.RTT = elapsed.Nanoseconds()
 		val.totalTime = val.RTT
 		val.AvgRTT = val.RTT
-		globalMap[key] = m
+		globalMap[svc] = m
 	}
+
+	// update timing of the ip
+	backend.lastRTT = globalMap[svc].RTT
+	backend.avgRTT = globalMap[svc].AvgRTT
 }
 
 func getStats(w http.ResponseWriter, r *http.Request) {
