@@ -40,6 +40,7 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 }
 
 func RoundRobin(svc string) (*BackendSrv, error) {
+	log.Println("Round Robin used") // debug
 	// we store index as 1 to N
 	// 0 indicates the absence of svc
 	backends, err := getBackendSvcList(svc)
@@ -47,7 +48,7 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := len(backends)+1
+	l := len(backends) + 1
 
 	index := lastSelections[svc] // here index is 0 if svc does not exist in lastSelections
 	if index == 0 {
