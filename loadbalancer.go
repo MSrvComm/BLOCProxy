@@ -21,7 +21,7 @@ var (
 )
 
 func getBackendSvcList(svc string) ([]BackendSrv, error) {
-	mapExists := Svc2BackendSrvMap[svc]
+	mapExists := Svc2BackendSrvMap[svc][:] // send a reference to the original instead of making a copy
 	if len(mapExists) > 0 {
 		log.Println("map exists") // debug
 		return mapExists, nil
@@ -37,7 +37,7 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 		}
 		// add backend to the backend maps
 		Svc2BackendSrvMap[svc] = backendSrvs
-		return backendSrvs, nil
+		return Svc2BackendSrvMap[svc][:], nil
 	}
 	// else
 	return nil, errors.New("no backend found")
@@ -62,14 +62,14 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	}
 
 	log.Println("index - 1:", index-1) // debug
-	backend := backends[index-1]
+	backend := &backends[index-1]
 	index = (index + 1) % l
 	if index == 0 {
 		index += 1
 	}
 	log.Println("saving index:", index) // debug
 	lastSelections[svc] = index
-	return &backend, nil
+	return backend, nil
 }
 
 func NextEndpoint(svc string) (*BackendSrv, error) {
