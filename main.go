@@ -177,10 +177,11 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// if val, ok := globalMap[key]; ok {
 	if val, ok := globalMap[backend.ip]; ok {
-		val.Count += 1
+		val.Count++
 		val.RTT = elapsed.Nanoseconds()
 		val.totalTime += val.RTT
 		val.AvgRTT = val.totalTime / int64(val.Count)
+		globalMap[backend.ip] = val
 	} else {
 		var m PathStats
 		m.Count = 1
