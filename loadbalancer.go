@@ -54,7 +54,7 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	}
 	l := len(backends) + 1
 
-	log.Printf("#+v\n", backends) // debug
+	log.Printf("%#+v\n", backends) // debug
 
 	index := lastSelections[svc] // here index is 0 if svc does not exist in lastSelections
 	if index == 0 {
