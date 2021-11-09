@@ -193,6 +193,8 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// update timing of the ip
 	backend.lastRTT = globalMap[svc].RTT
 	backend.avgRTT = globalMap[svc].AvgRTT
+	log.Printf("%#+v\n", backend) // debug
+	log.Printf("#+v\n", globalMap[svc]) // debug
 
 	// add backend to the backend maps
 	// if len(Svc2BackendSrvMap[svc]) == 0 {
