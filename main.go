@@ -176,7 +176,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// close(done)
 
 	// if val, ok := globalMap[key]; ok {
-	if val, ok := globalMap[svc]; ok {
+	if val, ok := globalMap[backend.ip]; ok {
 		val.Count += 1
 		val.RTT = elapsed.Nanoseconds()
 		val.totalTime += val.RTT
@@ -187,14 +187,14 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		m.RTT = elapsed.Nanoseconds()
 		val.totalTime = val.RTT
 		val.AvgRTT = val.RTT
-		globalMap[svc] = m
+		globalMap[backend.ip] = m
 	}
 
 	// update timing of the ip
-	backend.lastRTT = globalMap[svc].RTT
-	backend.avgRTT = globalMap[svc].AvgRTT
-	log.Printf("%#+v\n", backend) // debug
-	log.Printf("#+v\n", globalMap[svc]) // debug
+	backend.lastRTT = globalMap[backend.ip].RTT
+	backend.avgRTT = globalMap[backend.ip].AvgRTT
+	log.Printf("%#+v\n", backend)               // debug
+	log.Printf("%#+v\n", globalMap[backend.ip]) // debug
 
 	// add backend to the backend maps
 	// if len(Svc2BackendSrvMap[svc]) == 0 {
