@@ -52,21 +52,19 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	if err != nil {
 		return nil, err
 	}
-	l := len(backends) + 1
+
+	l := len(backends)
 
 	log.Printf("%#+v\n", backends) // debug
 
-	index := lastSelections[svc] // here index is 0 if svc does not exist in lastSelections
-	if index == 0 {
-		index = 1 // no requests have been made here yet, this is the first, select the first backednd
+	index, ok := lastSelections[svc]
+	if !ok {
+		index = 0
 	}
 
-	log.Println("index - 1:", index-1) // debug
-	backend := &backends[index-1]
-	index = (index + 1) % l
-	if index == 0 {
-		index += 1
-	}
+	backend := &backends[index]
+	index++
+	index = index % l
 	log.Println("saving index:", index) // debug
 	lastSelections[svc] = index
 	return backend, nil
