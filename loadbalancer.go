@@ -8,9 +8,9 @@ import (
 )
 
 type BackendSrv struct {
-	ip       string // ip of an endpoint
-	reqs     int64  // outstanding number of request
-	rcvTime  int64  // when the last request was received
+	ip       string    // ip of an endpoint
+	reqs     int64     // outstanding number of request
+	rcvTime  time.Time // when the last request was received
 	lastRTT  int64
 	avgRTT   int64
 	wtAvgRTT int64
@@ -19,7 +19,7 @@ type BackendSrv struct {
 var (
 	// change this to change load balancing policy
 	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
-	LBPolicy          = "LeastTime"
+	defaultLBPolicy   = "LeastConn"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	lastSelections    = make(map[string]int)
 )
@@ -98,7 +98,7 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	var b *BackendSrv
 
 	for i := range backends {
-		predTime := backends[i].reqs*backends[i].wtAvgRTT - backends[i].rcvTime
+		predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(time.Since(backends[i].rcvTime))
 		if predTime < minRTT {
 			minRTT = predTime
 			b = &backends[i]
@@ -108,7 +108,7 @@ func LeastTime(svc string) (*BackendSrv, error) {
 }
 
 func NextEndpoint(svc string) (*BackendSrv, error) {
-	switch LBPolicy {
+	switch defaultLBPolicy {
 	case "RoundRobin":
 		return RoundRobin(svc)
 	case "LeastConn":
