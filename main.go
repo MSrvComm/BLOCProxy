@@ -127,6 +127,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
+	backend.rcvTime = int64(start.Nanosecond())
 	response, err := http.DefaultClient.Do(r)
 	elapsed := time.Since(start) // used for timing
 

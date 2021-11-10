@@ -4,11 +4,13 @@ import (
 	"errors"
 	"log"
 	"math"
+	"time"
 )
 
 type BackendSrv struct {
 	ip       string // ip of an endpoint
 	reqs     int64  // outstanding number of request
+	rcvTime  int64  // when the last request was received
 	lastRTT  int64
 	avgRTT   int64
 	wtAvgRTT int64
@@ -16,8 +18,8 @@ type BackendSrv struct {
 
 var (
 	// change this to change load balancing policy
-	// possible values are "RoundRobin" and to be defined ... TODO:
-	LBPolicy          = "LeastConn"
+	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
+	LBPolicy          = "LeastTime"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	lastSelections    = make(map[string]int)
 )
@@ -86,12 +88,33 @@ func LeastConn(svc string) (*BackendSrv, error) {
 	return b, nil
 }
 
+func LeastTime(svc string) (*BackendSrv, error) {
+	log.Println("Least Time used") // debug
+	backends, err := getBackendSvcList(svc)
+	if err != nil {
+		return nil, err
+	}
+	minRTT := time.Hour.Nanoseconds()
+	var b *BackendSrv
+
+	for i := range backends {
+		predTime := backends[i].reqs*backends[i].wtAvgRTT - backends[i].rcvTime
+		if predTime < minRTT {
+			minRTT = predTime
+			b = &backends[i]
+		}
+	}
+	return b, nil
+}
+
 func NextEndpoint(svc string) (*BackendSrv, error) {
 	switch LBPolicy {
 	case "RoundRobin":
 		return RoundRobin(svc)
 	case "LeastConn":
 		return LeastConn(svc)
+	case "LeastTime":
+		return LeastTime(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
