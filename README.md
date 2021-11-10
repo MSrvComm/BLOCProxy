@@ -9,13 +9,6 @@ sudo docker build -t ratnadeepb/micoproxy:latest .
 sudo docker push ratnadeepb/micoproxy:latest
 ```
 
-## Building the init-container
-
-```bash
-sudo docker build -t ratnadeepb/micoinit -f Dockerfile.init .
-sudo docker push ratnadeepb/micoinit:latest
-```
-
 ## Running the MiCo tool
 
 ```bash
