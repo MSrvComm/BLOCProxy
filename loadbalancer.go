@@ -3,13 +3,15 @@ package main
 import (
 	"errors"
 	"log"
+	"math"
 )
 
 type BackendSrv struct {
-	ip      string // ip of an endpoint
-	reqs    int64  // outstanding number of request
-	lastRTT int64
-	avgRTT  int64
+	ip       string // ip of an endpoint
+	reqs     int64  // outstanding number of request
+	lastRTT  int64
+	avgRTT   int64
+	wtAvgRTT int64
 }
 
 var (
@@ -23,7 +25,6 @@ var (
 func getBackendSvcList(svc string) ([]BackendSrv, error) {
 	mapExists := Svc2BackendSrvMap[svc][:] // send a reference to the original instead of making a copy
 	if len(mapExists) > 0 {
-		log.Println("map exists") // debug
 		return mapExists, nil
 	}
 	// else if
@@ -31,7 +32,6 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 	var backendSrvs []BackendSrv
 	ips := endpoints[svc]
 	if len(ips) > 0 {
-		log.Println("ips loop") // debug
 		for _, ip := range ips {
 			backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, avgRTT: 0})
 		}
@@ -55,8 +55,6 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 
 	l := len(backends)
 
-	log.Printf("%#+v\n", backends) // debug
-
 	index, ok := lastSelections[svc]
 	if !ok {
 		index = 0
@@ -65,17 +63,37 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	backend := &backends[index]
 	index++
 	index = index % l
-	log.Println("saving index:", index) // debug
 	lastSelections[svc] = index
 	return backend, nil
 }
 
+func LeastConn(svc string) (*BackendSrv, error) {
+	log.Println("Least Connection used") // debug
+	backends, err := getBackendSvcList(svc)
+	if err != nil {
+		return nil, err
+	}
+
+	minReq := int64(math.MaxInt64)
+	var b *BackendSrv
+
+	for i := range backends {
+		if backends[i].reqs < minReq {
+			minReq = backends[i].reqs
+			b = &backends[i]
+		}
+	}
+	return b, nil
+}
+
 func NextEndpoint(svc string) (*BackendSrv, error) {
-	// switch LBPolicy {
-	// case "RoundRobin":
-	// 	return RoundRobin(svc)
-	// default:
-	// 	return
-	// }
-	return RoundRobin(svc)
+	switch LBPolicy {
+	case "RoundRobin":
+		return RoundRobin(svc)
+	case "LeastConn":
+		return LeastConn(svc)
+	default:
+		return nil, errors.New("no endpoint found")
+	}
+	// return RoundRobin(svc)
 }
