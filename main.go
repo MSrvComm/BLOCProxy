@@ -63,6 +63,7 @@ func NewProxy(target string) *Proxy {
 
 func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	// set forwarded for header
+	log.Println("incoming") // debug
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Fatal(err)
