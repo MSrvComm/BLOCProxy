@@ -11,6 +11,8 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/gorilla/mux"
 )
 
 const (
@@ -123,13 +125,15 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	r.URL.Host = net.JoinHostPort(backend.ip, port)                           // use the ip directly
-	backend.reqs += 1                                                         // a new open request
-	log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
+	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
+	backend.reqs += 1                               // a new open request
+	// log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
 	backend.rcvTime = start
-	response, err := http.DefaultClient.Do(r)
+	var client = &http.Client{Timeout: time.Second * 10}
+	// response, err := http.DefaultClient.Do(r)
+	response, err := client.Do(r)
 	elapsed := time.Since(start) // used for timing
 
 	backend.reqs -= 1 // a request closed
@@ -223,11 +227,16 @@ func main() {
 	fmt.Println("redirecting to:", g_redirectUrl)
 	fmt.Println("User ID:", os.Getuid())
 	proxy := NewProxy(g_redirectUrl)
-	outMux := http.NewServeMux()
-	outMux.HandleFunc("/", handleOutgoing)
-	inMux := http.NewServeMux()
-	inMux.HandleFunc("/", proxy.handle)
+	// outMux := http.NewServeMux()
+	// outMux.HandleFunc("/", handleOutgoing)
+	outMux := mux.NewRouter()
+	outMux.PathPrefix("/").HandlerFunc(handleOutgoing)
+	// inMux := http.NewServeMux()
+	// inMux.HandleFunc("/", proxy.handle)
+	// inMux.HandleFunc("/stats", getStats)
+	inMux := mux.NewRouter()
 	inMux.HandleFunc("/stats", getStats)
+	inMux.PathPrefix("/").HandlerFunc(proxy.handle)
 
 	// start running the communication server
 	done := make(chan bool)

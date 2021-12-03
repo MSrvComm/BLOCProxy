@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"log"
-	"math"
+	"math/rand"
 	"time"
 )
 
@@ -19,7 +19,7 @@ type BackendSrv struct {
 var (
 	// change this to change load balancing policy
 	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
-	defaultLBPolicy   = "LeastTime"
+	defaultLBPolicy   = "RoundRobin"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	lastSelections    = make(map[string]int)
 )
@@ -45,6 +45,12 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 	return nil, errors.New("no backend found")
 }
 
+// initialize the seed only once
+const BitsPerWord = 32 << (^uint(0) >> 63)
+const MaxInt = 1<<(BitsPerWord-1) - 1
+
+var seed = time.Now().UTC().UnixNano()
+
 func RoundRobin(svc string) (*BackendSrv, error) {
 	log.Println("Round Robin used") // debug
 	// we store index as 1 to N
@@ -59,7 +65,8 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 
 	index, ok := lastSelections[svc]
 	if !ok {
-		index = 0
+		// index = 0
+		index = rand.Intn(l)
 	}
 
 	backend := &backends[index]
@@ -76,16 +83,30 @@ func LeastConn(svc string) (*BackendSrv, error) {
 		return nil, err
 	}
 
-	minReq := int64(math.MaxInt64)
-	var b *BackendSrv
+	// minReq := int64(math.MaxInt64)
+	// var b *BackendSrv
 
-	for i := range backends {
-		if backends[i].reqs < minReq {
-			minReq = backends[i].reqs
-			b = &backends[i]
-		}
+	// for i := range backends {
+	// 	if backends[i].reqs < minReq {
+	// 		minReq = backends[i].reqs
+	// 		b = &backends[i]
+	// 	}
+	// }
+	// return b, nil
+
+	// P2C Least Conn
+	if seed == MaxInt {
+		seed = time.Now().UTC().UnixNano()
 	}
-	return b, nil
+	seed += 1
+	rand.Seed(seed)
+	srv1 := &backends[rand.Intn(len(backends))]
+	srv2 := &backends[rand.Intn(len(backends))]
+
+	if srv1.reqs < srv2.reqs {
+		return srv1, nil
+	}
+	return srv2, nil
 }
 
 func LeastTime(svc string) (*BackendSrv, error) {
