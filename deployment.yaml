@@ -33,7 +33,7 @@ spec:
     spec:
       containers:
       - image: ratnadeepb/testapp:jaeger
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: testapp-test-0
         ports:
         - containerPort: 5000
