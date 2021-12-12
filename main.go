@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -126,17 +127,21 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
-	backend.reqs += 1                               // a new open request
+	atomic.AddInt64(&backend.reqs, 1)               // a new open request
+	// backend.reqs += 1                               // a new open request
 	// log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
-	backend.rcvTime = start
+	rcvTime := start.UnixNano()
+	atomic.StoreInt64(&backend.rcvTime, rcvTime)
+	// backend.rcvTime = start.UnixNano()
 	var client = &http.Client{Timeout: time.Second * 10}
 	// response, err := http.DefaultClient.Do(r)
 	response, err := client.Do(r)
 	elapsed := time.Since(start) // used for timing
 
-	backend.reqs -= 1 // a request closed
+	atomic.AddInt64(&backend.reqs, -1) // a request closed
+	// backend.reqs -= 1 // a request closed
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -201,19 +206,18 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// update timing of the ip
-	backend.lastRTT = globalMap[backend.ip].RTT
-	backend.avgRTT = globalMap[backend.ip].AvgRTT
-	backend.wtAvgRTT = globalMap[backend.ip].wtAvgRTT
-	// log.Printf("%#+v\n", backend)               // debug
-	// log.Printf("%#+v\n", globalMap[backend.ip]) // debug
+	var ip atomic.Value
+	ip.Store(backend.ip)
+	ipString := ip.Load().(string)
+	// rtt := atomic.LoadInt64()
+	atomic.SwapInt64(&backend.lastRTT, globalMap[ipString].RTT)
+	// backend.lastRTT = globalMap[backend.ip].RTT
+	atomic.SwapInt64(&backend.avgRTT, globalMap[ipString].AvgRTT)
+	// backend.avgRTT = globalMap[backend.ip].AvgRTT
+	// backend.wtAvgRTT = globalMap[backend.ip].wtAvgRTT
+	atomic.SwapInt64(&backend.wtAvgRTT, globalMap[ipString].wtAvgRTT)
 
-	// add backend to the backend maps
-	// if len(Svc2BackendSrvMap[svc]) == 0 {
-	// 	Svc2BackendSrvMap[svc] = append(Svc2BackendSrvMap[svc], *backend)
-
-	// }
-
-	log.Printf("%#+v\n", Svc2BackendSrvMap[svc]) // debug
+	// log.Printf("%#+v\n", Svc2BackendSrvMap[svc]) // debug
 }
 
 func getStats(w http.ResponseWriter, r *http.Request) {

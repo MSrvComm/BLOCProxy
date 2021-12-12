@@ -4,13 +4,15 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"sync"
 	"time"
 )
 
 type BackendSrv struct {
-	ip       string    // ip of an endpoint
-	reqs     int64     // outstanding number of request
-	rcvTime  time.Time // when the last request was received
+	ip   string // ip of an endpoint
+	reqs int64  // outstanding number of request
+	// rcvTime  time.Time // when the last request was received
+	rcvTime  int64 // when the last request was received
 	lastRTT  int64
 	avgRTT   int64
 	wtAvgRTT int64
@@ -21,7 +23,8 @@ var (
 	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
 	defaultLBPolicy   = "RoundRobin"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
-	lastSelections    = make(map[string]int)
+	// lastSelections    = make(map[string]int)
+	lastSelections sync.Map
 )
 
 func getBackendSvcList(svc string) ([]BackendSrv, error) {
@@ -63,16 +66,21 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 
 	l := len(backends)
 
-	index, ok := lastSelections[svc]
+	ind, ok := lastSelections.Load(svc)
+	var index int
+	// index, ok := lastSelections[svc]
 	if !ok {
 		// index = 0
 		index = rand.Intn(l)
+	} else {
+		index = ind.(int)
 	}
 
 	backend := &backends[index]
 	index++
 	index = index % l
-	lastSelections[svc] = index
+	lastSelections.Store(svc, index)
+	// lastSelections[svc] = index
 	return backend, nil
 }
 
@@ -119,7 +127,9 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	var b *BackendSrv
 
 	for i := range backends {
-		predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(time.Since(backends[i].rcvTime))
+		rcvTime := time.Duration(backends[i].rcvTime)
+		// predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(time.Since(backends[i].rcvTime))
+		predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(rcvTime)
 		if predTime < minRTT {
 			minRTT = predTime
 			b = &backends[i]
