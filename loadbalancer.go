@@ -21,7 +21,7 @@ type BackendSrv struct {
 var (
 	// change this to change load balancing policy
 	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
-	defaultLBPolicy   = "RoundRobin"
+	defaultLBPolicy   = "LeastTime"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	// lastSelections    = make(map[string]int)
 	lastSelections sync.Map
