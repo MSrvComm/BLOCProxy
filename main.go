@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -24,7 +25,8 @@ const (
 
 var (
 	g_redirectUrl string
-	globalMap     = make(map[string]PathStats) // used for timing
+	// globalMap     = make(map[string]PathStats) // used for timing
+	globalMap sync.Map
 )
 
 // used for timing
@@ -188,34 +190,39 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// close(done)
 
 	// if val, ok := globalMap[key]; ok {
-	if val, ok := globalMap[backend.ip]; ok {
+	var ip atomic.Value
+	ip.Store(backend.ip)
+	ipString := ip.Load().(string)
+	if v, ok := globalMap.Load(ipString); ok {
+		// if val, ok := globalMap[ipString]; ok {
+		val := v.(PathStats)
 		val.Count++
 		val.RTT = elapsed.Nanoseconds()
 		val.totalTime += val.RTT
 		val.AvgRTT = val.totalTime / int64(val.Count)
 		val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
-		globalMap[backend.ip] = val
+		globalMap.Store(ipString, val)
+		// globalMap[ipString] = val
 	} else {
 		var m PathStats
 		m.Count = 1
 		m.RTT = elapsed.Nanoseconds()
-		val.totalTime = val.RTT
-		val.AvgRTT = val.RTT
-		val.wtAvgRTT = val.RTT
-		globalMap[backend.ip] = m
+		m.totalTime = m.RTT
+		m.AvgRTT = m.RTT
+		m.wtAvgRTT = m.RTT
+		globalMap.Store(ipString, m)
+		// globalMap[ipString] = m
 	}
 
 	// update timing of the ip
-	var ip atomic.Value
-	ip.Store(backend.ip)
-	ipString := ip.Load().(string)
-	// rtt := atomic.LoadInt64()
-	atomic.SwapInt64(&backend.lastRTT, globalMap[ipString].RTT)
+	b, _ := globalMap.Load(ipString) // we just populated globalMap
+	p := b.(PathStats)
+	atomic.SwapInt64(&backend.lastRTT, p.RTT)
 	// backend.lastRTT = globalMap[backend.ip].RTT
-	atomic.SwapInt64(&backend.avgRTT, globalMap[ipString].AvgRTT)
+	atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
 	// backend.avgRTT = globalMap[backend.ip].AvgRTT
 	// backend.wtAvgRTT = globalMap[backend.ip].wtAvgRTT
-	atomic.SwapInt64(&backend.wtAvgRTT, globalMap[ipString].wtAvgRTT)
+	atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
 
 	// log.Printf("%#+v\n", Svc2BackendSrvMap[svc]) // debug
 }
