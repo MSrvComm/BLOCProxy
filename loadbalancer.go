@@ -111,9 +111,14 @@ func LeastConn(svc string) (*BackendSrv, error) {
 	srv1 := &backends[rand.Intn(len(backends))]
 	srv2 := &backends[rand.Intn(len(backends))]
 
+	// var ip string
 	if srv1.reqs < srv2.reqs {
+		// ip = srv2.ip
+		// log.Println("picked:", ip)
 		return srv1, nil
 	}
+	// ip = srv2.ip
+	// log.Println("picked:", ip)
 	return srv2, nil
 }
 
@@ -123,18 +128,28 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	if err != nil {
 		return nil, err
 	}
-	minRTT := time.Hour.Nanoseconds()
+	// minRTT := time.Hour.Nanoseconds()
+	minRTT := int64(MaxInt)
 	var b *BackendSrv
 
 	for i := range backends {
 		rcvTime := time.Duration(backends[i].rcvTime)
 		// predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(time.Since(backends[i].rcvTime))
-		predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(rcvTime)
+		var predTime int64
+		reqs := backends[i].reqs
+		if reqs == 0 {
+			predTime = int64(rcvTime)
+		} else {
+			predTime = (reqs+1)*backends[i].wtAvgRTT - int64(rcvTime)
+		}
+
 		if predTime < minRTT {
 			minRTT = predTime
 			b = &backends[i]
 		}
 	}
+	// ip := b.ip
+	// log.Println("picked:", ip)
 	return b, nil
 }
 
