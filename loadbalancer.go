@@ -66,6 +66,12 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 
 	l := len(backends)
 
+	if seed == MaxInt {
+		seed = time.Now().UTC().UnixNano()
+	}
+	seed += 1
+	rand.Seed(seed)
+
 	ind, ok := lastSelections.Load(svc)
 	var index int
 	// index, ok := lastSelections[svc]
@@ -90,17 +96,6 @@ func LeastConn(svc string) (*BackendSrv, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// minReq := int64(math.MaxInt64)
-	// var b *BackendSrv
-
-	// for i := range backends {
-	// 	if backends[i].reqs < minReq {
-	// 		minReq = backends[i].reqs
-	// 		b = &backends[i]
-	// 	}
-	// }
-	// return b, nil
 
 	// P2C Least Conn
 	if seed == MaxInt {
@@ -128,26 +123,63 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	if err != nil {
 		return nil, err
 	}
-	// minRTT := time.Hour.Nanoseconds()
+
 	minRTT := int64(MaxInt)
 	var b *BackendSrv
 
-	for i := range backends {
-		rcvTime := time.Duration(backends[i].rcvTime)
-		// predTime := backends[i].reqs*backends[i].wtAvgRTT - int64(time.Since(backends[i].rcvTime))
-		var predTime int64
-		reqs := backends[i].reqs
+	if seed == MaxInt {
+		seed = time.Now().UTC().UnixNano()
+	}
+	seed += 1
+	rand.Seed(seed)
+
+	ln := len(backends)
+	index := rand.Intn(ln)
+	it := index
+	// the do part of the do-while logic
+	rcvTime := time.Duration(backends[it].rcvTime)
+	var predTime int64
+	reqs := backends[it].reqs
+	if reqs == 0 {
+		predTime = int64(rcvTime)
+	} else {
+		predTime = (reqs+1)*backends[it].wtAvgRTT - int64(rcvTime)
+	}
+	it = (it + 1) % ln
+	// the while part
+	for {
+		if predTime < minRTT {
+			minRTT = predTime
+			b = &backends[it]
+		}
+		if it == index {
+			break
+		}
+		rcvTime = time.Duration(backends[it].rcvTime)
+		reqs = backends[it].reqs
 		if reqs == 0 {
 			predTime = int64(rcvTime)
 		} else {
-			predTime = (reqs+1)*backends[i].wtAvgRTT - int64(rcvTime)
+			predTime = (reqs+1)*backends[it].wtAvgRTT - int64(rcvTime)
 		}
-
-		if predTime < minRTT {
-			minRTT = predTime
-			b = &backends[i]
-		}
+		it = (it + 1) % ln
 	}
+	// // the original loop
+	// for i := range backends {
+	// 	rcvTime := time.Duration(backends[i].rcvTime)
+	// 	var predTime int64
+	// 	reqs := backends[i].reqs
+	// 	if reqs == 0 {
+	// 		predTime = int64(rcvTime)
+	// 	} else {
+	// 		predTime = (reqs+1)*backends[i].wtAvgRTT - int64(rcvTime)
+	// 	}
+
+	// 	if predTime < minRTT {
+	// 		minRTT = predTime
+	// 		b = &backends[i]
+	// 	}
+	// }
 	// ip := b.ip
 	// log.Println("picked:", ip)
 	return b, nil
