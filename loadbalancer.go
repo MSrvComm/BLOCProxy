@@ -20,7 +20,7 @@ type BackendSrv struct {
 
 var (
 	// change this to change load balancing policy
-	// possible values are "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
+	// possible values are "Random", "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
 	defaultLBPolicy   = "LeastTime"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	// lastSelections    = make(map[string]int)
@@ -185,6 +185,24 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	return b, nil
 }
 
+func Random(svc string) (*BackendSrv, error) {
+	log.Println("Random used") // debug
+	backends, err := getBackendSvcList(svc)
+	if err != nil {
+		return nil, err
+	}
+
+	if seed == MaxInt {
+		seed = time.Now().UTC().UnixNano()
+	}
+	seed += 1
+	rand.Seed(seed)
+
+	ln := len(backends)
+	index := rand.Intn(ln)
+	return &backends[index], nil
+}
+
 func NextEndpoint(svc string) (*BackendSrv, error) {
 	switch defaultLBPolicy {
 	case "RoundRobin":
@@ -193,6 +211,8 @@ func NextEndpoint(svc string) (*BackendSrv, error) {
 		return LeastConn(svc)
 	case "LeastTime":
 		return LeastTime(svc)
+	case "Random":
+		return Random(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
