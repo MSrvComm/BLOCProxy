@@ -104,10 +104,7 @@ func addService(s string) bool {
 }
 
 func handleOutgoing(w http.ResponseWriter, r *http.Request) {
-	// key := r.Method + r.URL.Path // used for timing
-
 	r.URL.Scheme = "http"
-	// r.URL.Host = r.Host
 	r.RequestURI = ""
 
 	svc, port, err := net.SplitHostPort(r.Host)
@@ -130,20 +127,19 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
 	atomic.AddInt64(&backend.reqs, 1)               // a new open request
-	// backend.reqs += 1                               // a new open request
 	// log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
 	rcvTime := start.UnixNano()
 	atomic.StoreInt64(&backend.rcvTime, rcvTime)
-	// backend.rcvTime = start.UnixNano()
+	backend.rcvTime = start.UnixNano()
 	var client = &http.Client{Timeout: time.Second * 10}
 	// response, err := http.DefaultClient.Do(r)
 	response, err := client.Do(r)
 	elapsed := time.Since(start) // used for timing
 
 	atomic.AddInt64(&backend.reqs, -1) // a request closed
-	// backend.reqs -= 1 // a request closed
+	backend.reqs -= 1                  // a request closed
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -189,12 +185,10 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// close(done)
 
-	// if val, ok := globalMap[key]; ok {
 	var ip atomic.Value
 	ip.Store(backend.ip)
 	ipString := ip.Load().(string)
 	if v, ok := globalMap.Load(ipString); ok {
-		// if val, ok := globalMap[ipString]; ok {
 		val := v.(PathStats)
 		val.Count++
 		val.RTT = elapsed.Nanoseconds()
@@ -202,7 +196,6 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		val.AvgRTT = val.totalTime / int64(val.Count)
 		val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
 		globalMap.Store(ipString, val)
-		// globalMap[ipString] = val
 	} else {
 		var m PathStats
 		m.Count = 1
@@ -211,20 +204,14 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		m.AvgRTT = m.RTT
 		m.wtAvgRTT = m.RTT
 		globalMap.Store(ipString, m)
-		// globalMap[ipString] = m
 	}
 
 	// update timing of the ip
 	b, _ := globalMap.Load(ipString) // we just populated globalMap
 	p := b.(PathStats)
 	atomic.SwapInt64(&backend.lastRTT, p.RTT)
-	// backend.lastRTT = globalMap[backend.ip].RTT
 	atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
-	// backend.avgRTT = globalMap[backend.ip].AvgRTT
-	// backend.wtAvgRTT = globalMap[backend.ip].wtAvgRTT
 	atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
-
-	// log.Printf("%#+v\n", Svc2BackendSrvMap[svc]) // debug
 }
 
 func getStats(w http.ResponseWriter, r *http.Request) {
