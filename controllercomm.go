@@ -8,9 +8,9 @@ import (
 	"time"
 )
 
-type endpoint struct {
-	SvcName string
-	Ips     []string
+type Endpoint struct {
+	Svcname string   `json:"Svcname"`
+	Ips     []string `json:"Ips"`
 }
 
 var (
@@ -42,13 +42,15 @@ func getEndpoints(svcName string) {
 		return
 	}
 
-	var ep endpoint
+	var ep Endpoint
 	err = json.Unmarshal(body, &ep)
+	// epString := string(body)
+	// log.Println("ep:", ep)
 	if err != nil {
 		log.Println("error json unmarshalling: ", err.Error())
 		return
 	}
-	endpoints[ep.SvcName] = ep.Ips
+	endpoints[ep.Svcname] = ep.Ips
 }
 
 func getAllEndpoints() {
