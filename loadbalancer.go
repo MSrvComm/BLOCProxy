@@ -189,8 +189,11 @@ func Random(svc string) (*BackendSrv, error) {
 	log.Println("Random used") // debug
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
+		log.Println("Random error", err.Error()) // debug
 		return nil, err
 	}
+
+	log.Println(backends) // debug
 
 	if seed == MaxInt {
 		seed = time.Now().UTC().UnixNano()
