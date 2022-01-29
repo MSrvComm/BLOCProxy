@@ -66,10 +66,11 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 
 	l := len(backends)
 
-	if seed == MaxInt {
-		seed = time.Now().UTC().UnixNano()
-	}
-	seed += 1
+	// if seed == MaxInt {
+	// 	seed = time.Now().UTC().UnixNano()
+	// }
+	// seed += 1
+	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 
 	ind, ok := lastSelections.Load(svc)
@@ -98,10 +99,11 @@ func LeastConn(svc string) (*BackendSrv, error) {
 	}
 
 	// P2C Least Conn
-	if seed == MaxInt {
-		seed = time.Now().UTC().UnixNano()
-	}
-	seed += 1
+	// if seed == MaxInt {
+	// 	seed = time.Now().UTC().UnixNano()
+	// }
+	// seed += 1
+	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	srv1 := &backends[rand.Intn(len(backends))]
 	srv2 := &backends[rand.Intn(len(backends))]
@@ -127,10 +129,11 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	minRTT := int64(MaxInt)
 	var b *BackendSrv
 
-	if seed == MaxInt {
-		seed = time.Now().UTC().UnixNano()
-	}
-	seed += 1
+	// if seed == MaxInt {
+	// 	seed = time.Now().UTC().UnixNano()
+	// }
+	// seed += 1
+	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 
 	ln := len(backends)
