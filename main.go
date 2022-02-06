@@ -32,11 +32,11 @@ var (
 // used for timing
 type PathStats struct {
 	// Path      string
-	Count     int
-	totalTime int64
-	RTT       int64
-	AvgRTT    int64
-	wtAvgRTT  int64
+	Count int
+	// totalTime int64
+	RTT int64
+	// AvgRTT    int64
+	wtAvgRTT int64
 }
 
 type myTransport struct{}
@@ -192,19 +192,19 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		val := v.(PathStats)
 		val.Count++
 		val.RTT = elapsed.Nanoseconds()
-		val.totalTime += val.RTT
-		val.AvgRTT = val.totalTime / int64(val.Count)
+		// val.totalTime += val.RTT
+		// val.AvgRTT = val.totalTime / int64(val.Count)
 		// val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
 		// A more correct calculation of online average
 		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
-		val.wtAvgRTT = int64(float64(val.wtAvgRTT) + (float64(val.RTT - val.wtAvgRTT) / float64(val.Count)))
+		val.wtAvgRTT = int64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
 		globalMap.Store(ipString, val)
 	} else {
 		var m PathStats
 		m.Count = 1
 		m.RTT = elapsed.Nanoseconds()
-		m.totalTime = m.RTT
-		m.AvgRTT = m.RTT
+		// m.totalTime = m.RTT
+		// m.AvgRTT = m.RTT
 		m.wtAvgRTT = m.RTT
 		globalMap.Store(ipString, m)
 	}
@@ -213,7 +213,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	b, _ := globalMap.Load(ipString) // we just populated globalMap
 	p := b.(PathStats)
 	atomic.SwapInt64(&backend.lastRTT, p.RTT)
-	atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
+	// atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
 	atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
 }
 
