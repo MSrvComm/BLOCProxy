@@ -32,7 +32,7 @@ var (
 // used for timing
 type PathStats struct {
 	// Path      string
-	Count int
+	Count uint64
 	// totalTime int64
 	RTT int64
 	// AvgRTT    int64
