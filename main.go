@@ -194,7 +194,10 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		val.RTT = elapsed.Nanoseconds()
 		val.totalTime += val.RTT
 		val.AvgRTT = val.totalTime / int64(val.Count)
-		val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
+		// val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
+		// A more correct calculation of online average
+		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
+		val.wtAvgRTT = int64(float64(val.wtAvgRTT) + (float64(val.RTT - val.wtAvgRTT) / float64(val.Count)))
 		globalMap.Store(ipString, val)
 	} else {
 		var m PathStats
