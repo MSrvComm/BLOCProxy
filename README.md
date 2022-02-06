@@ -2,6 +2,14 @@
 
 The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy) and this [talk](https://www.youtube.com/watch?v=tWSmUsYLiE4)
 
+## MiCoProxy versions
+
+The `latest` version of the MiCoProxy docker now stands abandoned. The algorithms are separately deployed as their own algorithms:
+- `ratnadeepb/micoproxy:leasttime`
+- `ratnadeepb/micoproxy:leastconn`
+- `ratnadeepb/micoproxy:random`
+- `ratnadeepb/micoproxy:roundrobin`
+
 ## Building the Proxy
 
 ```bash
