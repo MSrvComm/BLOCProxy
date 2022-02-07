@@ -23,8 +23,12 @@ type BackendSrv struct {
 
 var (
 	// change this to change load balancing policy
-	// possible values are "Random", "RoundRobin", "LeastConn", "LeastTime"
-	// New value is "RangeHash"
+	// possible values are:
+	// "Random"
+	// "RoundRobin"
+	// "LeastConn"
+	// "LeastTime"
+	// "RangeHash" and "RangeHashGreedy"
 	defaultLBPolicy   = "RangeHash"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	// lastSelections    = make(map[string]int)
@@ -227,7 +231,9 @@ func NextEndpoint(svc string) (*BackendSrv, error) {
 	case "Random":
 		return Random(svc)
 	case "RangeHash":
-		return rangeHashLB(svc)
+		return rangeHashRounds(svc)
+	case "RangeHashGreedy":
+		return rangeHashGreedy(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

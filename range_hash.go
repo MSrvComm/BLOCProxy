@@ -37,7 +37,31 @@ func hashDistribution(backendSrvs *[]BackendSrv, n int) {
 	}
 }
 
-func rangeHashLB(svc string) (*BackendSrv, error) {
+func rangeHashGreedy(svc string) (*BackendSrv, error) {
+	log.Println("Range Hash Greedy used") // debug
+	// generate a random hash for every request
+	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
+	hsh := hash(ip)
+	log.Println("hash", hsh) // debug
+	backends, err := getBackendSvcList(svc)
+	if err != nil {
+		return nil, err
+	}
+
+	backend2return := &backends[0]
+	for i := range backends {
+		if hsh >= (&backends[i]).start && hsh <= (&backends[i]).end {
+			backend2return = &backends[i]
+		}
+	}
+
+	// greedy - redistribute on every request
+	redistributeHash(svc)
+
+	return backend2return, nil
+}
+
+func rangeHashRounds(svc string) (*BackendSrv, error) {
 	log.Println("Range Hash used") // debug
 	// generate a random hash for every request
 	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
@@ -56,7 +80,8 @@ func rangeHashLB(svc string) (*BackendSrv, error) {
 
 	for i := range backends {
 		// check for the skew threshold
-		if float64((&backends[i]).wtAvgRTT) >= (1+SKEW_THRESHOLD)*float64(system_rtt_avg) {
+		// whether the response time of the pod is too high or too low
+		if float64((&backends[i]).wtAvgRTT) >= (1+SKEW_THRESHOLD)*float64(system_rtt_avg) || float64((&backends[i]).wtAvgRTT) <= (1-SKEW_THRESHOLD)*float64(system_rtt_avg) {
 			redistributeHash(svc)
 			redistributed = true
 		}
@@ -82,10 +107,10 @@ func rangeHashLB(svc string) (*BackendSrv, error) {
 			backend2return = &backends[i]
 		}
 	}
-	// // check if reassignment of hash range is required
-	// if !redistributed && float64(backendsNotInGrp) >= float64(len(backends))*(1+SIZE_THRESHOLD) {
-	// 	redistributeHash(svc)
-	// }
+	// check if reassignment of hash range is required
+	if !redistributed && float64(backendsNotInGrp) >= float64(len(backends))*(1+SIZE_THRESHOLD) {
+		redistributeHash(svc)
+	}
 
 	// // greedy - redistribute on every request
 	// redistributeHash(svc)
