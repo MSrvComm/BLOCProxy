@@ -34,9 +34,9 @@ type PathStats struct {
 	// Path      string
 	Count uint64
 	// totalTime int64
-	RTT int64
+	RTT uint64
 	// AvgRTT    int64
-	wtAvgRTT int64
+	wtAvgRTT uint64
 }
 
 type myTransport struct{}
@@ -118,7 +118,14 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
 
-	backend, err := NextEndpoint(svc)
+	var headers string
+	for _, values := range r.Header {
+		for _, value := range values {
+			headers += value
+		}
+	}
+
+	backend, err := NextEndpoint(svc, headers)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
@@ -130,9 +137,9 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
-	rcvTime := start.UnixNano()
-	atomic.StoreInt64(&backend.rcvTime, rcvTime)
-	backend.rcvTime = start.UnixNano()
+	rcvTime := uint64(start.UnixNano())
+	atomic.StoreUint64(&backend.rcvTime, rcvTime)
+	backend.rcvTime = uint64(start.UnixNano())
 	var client = &http.Client{Timeout: time.Second * 10}
 	// response, err := http.DefaultClient.Do(r)
 	response, err := client.Do(r)
@@ -185,24 +192,29 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// close(done)
 
+	// system requests and system avg for range hash algo
+	sys_reqs++
+	rtt := uint64(elapsed.Nanoseconds())
+	system_rtt_avg = uint64(float64(system_rtt_avg) + (float64(system_rtt_avg-rtt) / float64(sys_reqs)))
+
 	var ip atomic.Value
 	ip.Store(backend.ip)
 	ipString := ip.Load().(string)
 	if v, ok := globalMap.Load(ipString); ok {
 		val := v.(PathStats)
 		val.Count++
-		val.RTT = elapsed.Nanoseconds()
+		val.RTT = rtt
 		// val.totalTime += val.RTT
 		// val.AvgRTT = val.totalTime / int64(val.Count)
 		// val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
 		// A more correct calculation of online average
 		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
-		val.wtAvgRTT = int64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
+		val.wtAvgRTT = uint64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
 		globalMap.Store(ipString, val)
 	} else {
 		var m PathStats
 		m.Count = 1
-		m.RTT = elapsed.Nanoseconds()
+		m.RTT = rtt
 		// m.totalTime = m.RTT
 		// m.AvgRTT = m.RTT
 		m.wtAvgRTT = m.RTT
@@ -212,9 +224,11 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// update timing of the ip
 	b, _ := globalMap.Load(ipString) // we just populated globalMap
 	p := b.(PathStats)
-	atomic.SwapInt64(&backend.lastRTT, p.RTT)
+	// atomic.SwapInt64(&backend.lastRTT, p.RTT)
+	atomic.SwapUint64(&backend.lastRTT, p.RTT)
 	// atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
-	atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
+	// atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
+	atomic.SwapUint64(&backend.wtAvgRTT, p.wtAvgRTT)
 }
 
 func getStats(w http.ResponseWriter, r *http.Request) {

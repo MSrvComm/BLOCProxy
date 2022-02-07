@@ -12,15 +12,19 @@ type BackendSrv struct {
 	ip   string // ip of an endpoint
 	reqs int64  // outstanding number of request
 	// rcvTime  time.Time // when the last request was received
-	rcvTime  int64 // when the last request was received
-	lastRTT  int64
-	avgRTT   int64
-	wtAvgRTT int64
+	rcvTime uint64 // when the last request was received
+	lastRTT uint64
+	// avgRTT   int64
+	wtAvgRTT uint64
+	start    uint64 // start of the hash range assigned to this node
+	end      uint64 // end of the hash range assigned to this node
+	grp      bool   // whether this backend is part of the main group or not
 }
 
 var (
 	// change this to change load balancing policy
-	// possible values are "Random", "RoundRobin", "LeastConn", "LeastTime" and to be defined ... TODO:
+	// possible values are "Random", "RoundRobin", "LeastConn", "LeastTime"
+	// New value is "RangeHash"
 	defaultLBPolicy   = "LeastTime"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	// lastSelections    = make(map[string]int)
@@ -38,8 +42,11 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 	ips := endpoints[svc]
 	if len(ips) > 0 {
 		for _, ip := range ips {
-			backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, avgRTT: 0})
+			// backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, avgRTT: 0})
+			backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, grp: true})
 		}
+		// call the hash distribution service here
+		hashDistribution(&backendSrvs, len(ips))
 		// add backend to the backend maps
 		Svc2BackendSrvMap[svc] = backendSrvs
 		return Svc2BackendSrvMap[svc][:], nil
@@ -126,7 +133,7 @@ func LeastTime(svc string) (*BackendSrv, error) {
 		return nil, err
 	}
 
-	minRTT := int64(MaxInt)
+	minRTT := uint64(MaxInt)
 	var b *BackendSrv
 
 	// if seed == MaxInt {
@@ -141,12 +148,12 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	it := index
 	// the do part of the do-while logic
 	rcvTime := time.Duration(backends[it].rcvTime)
-	var predTime int64
-	reqs := backends[it].reqs
+	var predTime uint64
+	reqs := uint64(backends[it].reqs)
 	if reqs == 0 {
-		predTime = int64(rcvTime)
+		predTime = uint64(rcvTime)
 	} else {
-		predTime = (reqs+1)*backends[it].wtAvgRTT - int64(rcvTime)
+		predTime = (reqs+1)*backends[it].wtAvgRTT - uint64(rcvTime)
 	}
 	it = (it + 1) % ln
 	// the while part
@@ -159,11 +166,11 @@ func LeastTime(svc string) (*BackendSrv, error) {
 			break
 		}
 		rcvTime = time.Duration(backends[it].rcvTime)
-		reqs = backends[it].reqs
+
 		if reqs == 0 {
-			predTime = int64(rcvTime)
+			predTime = uint64(rcvTime)
 		} else {
-			predTime = (reqs+1)*backends[it].wtAvgRTT - int64(rcvTime)
+			predTime = (reqs+1)*backends[it].wtAvgRTT - uint64(rcvTime)
 		}
 		it = (it + 1) % ln
 	}
@@ -209,7 +216,7 @@ func Random(svc string) (*BackendSrv, error) {
 	return &backends[index], nil
 }
 
-func NextEndpoint(svc string) (*BackendSrv, error) {
+func NextEndpoint(svc, headers string) (*BackendSrv, error) {
 	switch defaultLBPolicy {
 	case "RoundRobin":
 		return RoundRobin(svc)
@@ -219,6 +226,8 @@ func NextEndpoint(svc string) (*BackendSrv, error) {
 		return LeastTime(svc)
 	case "Random":
 		return Random(svc)
+	case "RangeHash":
+		return rangeHashLB(svc, headers)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
