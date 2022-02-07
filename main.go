@@ -118,14 +118,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
 
-	var headers string
-	for _, values := range r.Header {
-		for _, value := range values {
-			headers += value
-		}
-	}
-
-	backend, err := NextEndpoint(svc, headers)
+	backend, err := NextEndpoint(svc)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
