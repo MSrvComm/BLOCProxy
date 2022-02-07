@@ -25,7 +25,7 @@ var (
 	// change this to change load balancing policy
 	// possible values are "Random", "RoundRobin", "LeastConn", "LeastTime"
 	// New value is "RangeHash"
-	defaultLBPolicy   = "LeastTime"
+	defaultLBPolicy   = "RangeHash"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	// lastSelections    = make(map[string]int)
 	lastSelections sync.Map
@@ -216,7 +216,7 @@ func Random(svc string) (*BackendSrv, error) {
 	return &backends[index], nil
 }
 
-func NextEndpoint(svc, headers string) (*BackendSrv, error) {
+func NextEndpoint(svc string) (*BackendSrv, error) {
 	switch defaultLBPolicy {
 	case "RoundRobin":
 		return RoundRobin(svc)
@@ -227,7 +227,7 @@ func NextEndpoint(svc, headers string) (*BackendSrv, error) {
 	case "Random":
 		return Random(svc)
 	case "RangeHash":
-		return rangeHashLB(svc, headers)
+		return rangeHashLB(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
