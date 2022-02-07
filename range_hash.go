@@ -1,16 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"hash/crc64"
 	"log"
 	"math"
+	"math/rand"
+	"sync/atomic"
 )
 
 const (
 	RESPONSE_TIME_THRESHOLD = 0.1
 	SIZE_THRESHOLD          = 0.3
 	SKEW_THRESHOLD          = 0.2
-	PRIME                   = 111
+	PRIME                   = 7
 )
 
 var (
@@ -34,9 +37,12 @@ func hashDistribution(backendSrvs *[]BackendSrv, n int) {
 	}
 }
 
-func rangeHashLB(svc, headers string) (*BackendSrv, error) {
+func rangeHashLB(svc string) (*BackendSrv, error) {
 	log.Println("Range Hash used") // debug
-	hsh := hash(headers)
+	// generate a random hash for every request
+	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
+	hsh := hash(ip)
+	log.Println("hash", hsh) // debug
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
 		return nil, err
@@ -48,41 +54,47 @@ func rangeHashLB(svc, headers string) (*BackendSrv, error) {
 	// we want to do it only once
 	redistributed := false
 
-	for _, backend := range backends {
+	for i := range backends {
 		// check for the skew threshold
-		if float64(backend.wtAvgRTT) >= (1+SKEW_THRESHOLD)*float64(system_rtt_avg) {
+		if float64((&backends[i]).wtAvgRTT) >= (1+SKEW_THRESHOLD)*float64(system_rtt_avg) {
 			redistributeHash(svc)
 			redistributed = true
 		}
 		// backend in main group but fails the Response time threshold condition
-		if !redistributed && backend.grp && float64(backend.wtAvgRTT) >= (1+RESPONSE_TIME_THRESHOLD)*float64(system_rtt_avg) {
-			backend.grp = false
+		if !redistributed && (&backends[i]).grp && float64((&backends[i]).wtAvgRTT) >= (1+RESPONSE_TIME_THRESHOLD)*float64(system_rtt_avg) {
+			(&backends[i]).grp = false
 			backendsNotInGrp++
 		}
 		// backend not in main group
-		if !redistributed && !backend.grp {
+		if !redistributed && !(&backends[i]).grp {
 			// the response time threshold is still failed
-			if float64(backend.wtAvgRTT) >= (1+RESPONSE_TIME_THRESHOLD)*float64(system_rtt_avg) {
+			if float64((&backends[i]).wtAvgRTT) >= (1+RESPONSE_TIME_THRESHOLD)*float64(system_rtt_avg) {
+				backendsNotInGrp++
+			} else if float64((&backends[i]).wtAvgRTT) < (1+RESPONSE_TIME_THRESHOLD)*float64(system_rtt_avg) {
 				backendsNotInGrp++
 			} else {
 				// add it back to the main group
-				backend.grp = true
+				(&backends[i]).grp = true
 			}
 		}
-		if hsh >= backend.start && hsh <= backend.end {
-			backend2return = &backend
+		// log.Printf("backend %s -> start: %d, end: %d", (&backends[i]).ip, (&backends[i]).start, (&backends[i]).end) // debug
+		if hsh >= (&backends[i]).start && hsh <= (&backends[i]).end {
+			backend2return = &backends[i]
 		}
 	}
+	// // check if reassignment of hash range is required
+	// if !redistributed && float64(backendsNotInGrp) >= float64(len(backends))*(1+SIZE_THRESHOLD) {
+	// 	redistributeHash(svc)
+	// }
 
-	// check if reassignment of hash range is required
-	if !redistributed && float64(backendsNotInGrp) >= float64(len(backends))*(1+SIZE_THRESHOLD) {
-		redistributeHash(svc)
-	}
+	// // greedy - redistribute on every request
+	// redistributeHash(svc)
 
 	return backend2return, nil
 }
 
 func redistributeHash(svc string) {
+	log.Println("redistributeHash called") // debug
 	total := float64(0)
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
@@ -90,16 +102,23 @@ func redistributeHash(svc string) {
 	}
 
 	// calculate the normalisation
-	for _, backend := range backends {
-		total += 1 / float64(backend.wtAvgRTT)
+	for i := range backends {
+		rtt := (&backends[i]).wtAvgRTT + 1 // can overflow, otherwise protects against division by 0
+		total += 1 / (float64(rtt) + 1)    // double protection against division by 0
 	}
 	// redistribute the hashranges
 	nodeRangeStart := uint64(0)
-	for _, backend := range backends {
-		nodeRange := uint64((1 / float64(backend.wtAvgRTT)) / total)
-		backend.start = nodeRangeStart
+	for i := range backends {
+		rttInv := 1 / (float64((&backends[i]).wtAvgRTT) + 1) // protect against division by 0
+		ratio := rttInv / total
+		rs := ratio * float64(system_range)
+		nodeRange := uint64(rs)
+		// log.Printf("wtAvgRTT: %v, NodeRange: %v, total: %v, ratio: %v, rs: %v", (&backends[i]).wtAvgRTT, nodeRange, total, ratio, rs) // debug
+		atomic.StoreUint64(&backends[i].start, nodeRangeStart)
+		// backend.start = nodeRangeStart
 		end := nodeRangeStart + nodeRange
-		backend.end = end
+		atomic.StoreUint64(&backends[i].end, end)
+		// backend.end = end
 		nodeRangeStart = end + 1
 	}
 }
