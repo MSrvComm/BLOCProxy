@@ -42,7 +42,7 @@ func rangeHashGreedy(svc string) (*BackendSrv, error) {
 	// generate a random hash for every request
 	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
 	hsh := hash(ip)
-	log.Println("hash", hsh) // debug
+
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func rangeHashRounds(svc string) (*BackendSrv, error) {
 	// generate a random hash for every request
 	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
 	hsh := hash(ip)
-	log.Println("hash", hsh) // debug
+
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
 		return nil, err
@@ -119,7 +119,7 @@ func rangeHashRounds(svc string) (*BackendSrv, error) {
 }
 
 func redistributeHash(svc string) {
-	log.Println("redistributeHash called") // debug
+	// log.Println("redistributeHash called") // debug
 	total := float64(0)
 	backends, err := getBackendSvcList(svc)
 	if err != nil {
@@ -129,7 +129,7 @@ func redistributeHash(svc string) {
 	// calculate the normalisation
 	for i := range backends {
 		rtt := (&backends[i]).wtAvgRTT + 1 // can overflow, otherwise protects against division by 0
-		total += 1 / (float64(rtt) + 1)    // double protection against division by 0
+		total += 1 / (float64(rtt) + 1) // shift rtt inverse values towards 1 so that 'ratio', later, is not 0
 	}
 	// redistribute the hashranges
 	nodeRangeStart := uint64(0)
@@ -140,10 +140,8 @@ func redistributeHash(svc string) {
 		nodeRange := uint64(rs)
 		// log.Printf("wtAvgRTT: %v, NodeRange: %v, total: %v, ratio: %v, rs: %v", (&backends[i]).wtAvgRTT, nodeRange, total, ratio, rs) // debug
 		atomic.StoreUint64(&backends[i].start, nodeRangeStart)
-		// backend.start = nodeRangeStart
 		end := nodeRangeStart + nodeRange
 		atomic.StoreUint64(&backends[i].end, end)
-		// backend.end = end
 		nodeRangeStart = end + 1
 	}
 }
