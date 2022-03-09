@@ -139,7 +139,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	elapsed := time.Since(start) // used for timing
 
 	atomic.AddInt64(&backend.reqs, -1) // a request closed
-	backend.reqs -= 1                  // a request closed
+	// backend.reqs -= 1                  // a request closed
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
