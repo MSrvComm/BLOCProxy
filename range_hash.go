@@ -7,6 +7,7 @@ import (
 	"math"
 	"math/rand"
 	"sync/atomic"
+	"time"
 )
 
 const (
@@ -40,6 +41,8 @@ func hashDistribution(backendSrvs *[]BackendSrv, n int) {
 func rangeHashGreedy(svc string) (*BackendSrv, error) {
 	log.Println("Range Hash Greedy used") // debug
 	// generate a random hash for every request
+	seed = time.Now().UTC().UnixNano()
+	rand.Seed(seed)
 	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
 	hsh := hash(ip)
 
@@ -64,6 +67,8 @@ func rangeHashGreedy(svc string) (*BackendSrv, error) {
 func rangeHashRounds(svc string) (*BackendSrv, error) {
 	log.Println("Range Hash used") // debug
 	// generate a random hash for every request
+	seed = time.Now().UTC().UnixNano()
+	rand.Seed(seed)
 	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
 	hsh := hash(ip)
 
@@ -129,7 +134,7 @@ func redistributeHash(svc string) {
 	// calculate the normalisation
 	for i := range backends {
 		rtt := (&backends[i]).wtAvgRTT + 1 // can overflow, otherwise protects against division by 0
-		total += 1 / (float64(rtt) + 1) // shift rtt inverse values towards 1 so that 'ratio', later, is not 0
+		total += 1 / (float64(rtt) + 1)    // shift rtt inverse values towards 1 so that 'ratio', later, is not 0
 	}
 	// redistribute the hashranges
 	nodeRangeStart := uint64(0)
