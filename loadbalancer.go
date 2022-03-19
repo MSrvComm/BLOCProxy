@@ -49,9 +49,9 @@ func contains(n int) bool {
 
 // set the indices
 func selectSubset(n, l int) {
+	seed = time.Now().UTC().UnixNano()
+	rand.Seed(seed)
 	for i := 0; i < 5; i++ {
-		seed = time.Now().UTC().UnixNano()
-		rand.Seed(seed)
 		n := rand.Intn(l)
 		for {
 			if !contains(n) {
@@ -130,6 +130,8 @@ func LCSubset(svc string) (*BackendSrv, error) {
 	if indices == nil {
 		selectSubset(5, l)
 	}
+
+	log.Println(indices)
 
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
