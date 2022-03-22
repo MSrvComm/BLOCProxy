@@ -29,58 +29,10 @@ var (
 	// "LeastConn"
 	// "LeastTime"
 	// "RangeHash" and "RangeHashGreedy"
-	// "LCSubset"
-	defaultLBPolicy   = "LCSubset"
+	defaultLBPolicy   = "LeastConn"
 	Svc2BackendSrvMap = make(map[string][]BackendSrv)
 	lastSelections    sync.Map
-	// IP                = -1 // for LCSubset
-	indices []int // for LC Subset
 )
-
-/* for LCSubset -------- starts */
-func contains(n int) bool {
-	for _, ind := range indices {
-		if ind == n {
-			return true
-		}
-	}
-	return false
-}
-
-// set the indices
-func selectSubset(n, l int) {
-	seed = time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	for i := 0; i < 5; i++ {
-		n := rand.Intn(l)
-		for {
-			if !contains(n) {
-				break
-			}
-			n = rand.Intn(l)
-		}
-		indices = append(indices, n)
-	}
-}
-
-/* for LCSubset -------- starts */
-
-// func getLocalIP() { // for LCSubset
-// 	conn, error := net.Dial("udp", "8.8.8.8:80")
-// 	if error != nil {
-// 		fmt.Println(error)
-
-// 	}
-
-// 	defer conn.Close()
-// 	ipAddress := conn.LocalAddr().(*net.UDPAddr)
-// 	// fmt.Println(ipAddress)
-// 	ip, err := strconv.Atoi(strings.Split(ipAddress.IP.String(), ".")[3])
-// 	if err != nil {
-// 		fmt.Println(err)
-// 	}
-// 	IP = ip % 2
-// }
 
 func getBackendSvcList(svc string) ([]BackendSrv, error) {
 	mapExists := Svc2BackendSrvMap[svc][:] // send a reference to the original instead of making a copy
@@ -111,49 +63,6 @@ const BitsPerWord = 32 << (^uint(0) >> 63)
 const MaxInt = 1<<(BitsPerWord-1) - 1
 
 var seed = time.Now().UTC().UnixNano()
-
-// LCSubset - not a real algorithm
-func LCSubset(svc string) (*BackendSrv, error) {
-	log.Println("LCSubset used") // debug
-
-	// // set IP if not set
-	// if IP == -1 {
-	// 	getLocalIP()
-	// }
-
-	backends, err := getBackendSvcList(svc)
-	if err != nil {
-		return nil, err
-	}
-
-	l := len(backends)
-	if indices == nil {
-		selectSubset(5, l)
-	}
-
-	log.Println(indices)
-
-	seed = time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-
-	ind1 := rand.Intn(len(indices))
-	ind2 := rand.Intn(len(indices))
-
-	for {
-		if ind1 != ind2 {
-			break
-		}
-		ind2 = rand.Intn(len(indices))
-	}
-
-	srv1 := &backends[indices[ind1]]
-	srv2 := &backends[indices[ind1]]
-
-	if srv1.reqs < srv2.reqs {
-		return srv1, nil
-	}
-	return srv2, nil
-}
 
 func RoundRobin(svc string) (*BackendSrv, error) {
 	log.Println("Round Robin used") // debug
@@ -325,8 +234,6 @@ func NextEndpoint(svc string) (*BackendSrv, error) {
 		return rangeHashRounds(svc)
 	case "RangeHashGreedy":
 		return rangeHashGreedy(svc)
-	case "LCSubset":
-		return LCSubset(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
