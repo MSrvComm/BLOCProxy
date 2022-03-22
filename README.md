@@ -15,8 +15,8 @@ The `latest` version of the MiCoProxy docker now stands abandoned. The algorithm
 ## Building the Proxy
 
 ```bash
-sudo docker build -t ratnadeepb/micoproxy:rangehashrounds .
-sudo docker push ratnadeepb/micoproxy:rangehashrounds
+sudo docker build -t ratnadeepb/micoproxy:rangehash .
+sudo docker push ratnadeepb/micoproxy:rangehash
 ```
 
 ## Running the MiCo tool
