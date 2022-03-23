@@ -14,9 +14,9 @@ type Endpoint struct {
 }
 
 var (
-	svcList = []string{""} // names of all services
-	// endpoints should be invalidated based on some policy
-	endpoints = make(map[string][]string) // all endpoints for all services
+	g_svcList = []string{""} // names of all services
+	// g_endpoints should be invalidated based on some policy
+	g_endpoints = make(map[string][]string) // all endpoints for all services
 )
 
 func getEndpoints(svcName string) {
@@ -48,12 +48,12 @@ func getEndpoints(svcName string) {
 		log.Println("error json unmarshalling: ", err.Error())
 		return
 	}
-	endpoints[ep.Svcname] = ep.Ips
+	g_endpoints[ep.Svcname] = ep.Ips
 }
 
 func getAllEndpoints() {
-	if len(svcList) > 0 {
-		for _, svc := range svcList {
+	if len(g_svcList) > 0 {
+		for _, svc := range g_svcList {
 			getEndpoints(svc)
 		}
 	}

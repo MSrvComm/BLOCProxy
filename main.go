@@ -86,14 +86,14 @@ func addService(s string) bool {
 		return true
 	}
 
-	for _, svc := range svcList {
+	for _, svc := range g_svcList {
 		if svc == s {
 			found = true
 			break
 		}
 	}
 	if !found {
-		svcList = append(svcList, s)
+		g_svcList = append(g_svcList, s)
 	}
 	return found
 }

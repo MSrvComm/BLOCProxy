@@ -27,20 +27,20 @@ var (
 	// "LeastConn"
 	// "LeastTime"
 	// "RangeHash" and "RangeHashGreedy"
-	defaultLBPolicy   = "LeastConn"
-	Svc2BackendSrvMap = make(map[string][]BackendSrv)
-	lastSelections    sync.Map
+	g_defaultLBPolicy   = "LeastConn"
+	g_Svc2BackendSrvMap = make(map[string][]BackendSrv)
+	g_lastSelections    sync.Map
 )
 
 func getBackendSvcList(svc string) ([]BackendSrv, error) {
-	mapExists := Svc2BackendSrvMap[svc][:] // send a reference to the original instead of making a copy
+	mapExists := g_Svc2BackendSrvMap[svc][:] // send a reference to the original instead of making a copy
 	if len(mapExists) > 0 {
 		return mapExists, nil
 	}
 	// else if
 	// make entries into backendSrvs here
 	var backendSrvs []BackendSrv
-	ips := endpoints[svc]
+	ips := g_endpoints[svc]
 	if len(ips) > 0 {
 		for _, ip := range ips {
 			// backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, avgRTT: 0})
@@ -49,8 +49,8 @@ func getBackendSvcList(svc string) ([]BackendSrv, error) {
 		// call the hash distribution service here
 		hashDistribution(&backendSrvs, len(ips))
 		// add backend to the backend maps
-		Svc2BackendSrvMap[svc] = backendSrvs
-		return Svc2BackendSrvMap[svc][:], nil
+		g_Svc2BackendSrvMap[svc] = backendSrvs
+		return g_Svc2BackendSrvMap[svc][:], nil
 	}
 	// else
 	return nil, errors.New("no backend found")
@@ -76,7 +76,7 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 
-	ind, ok := lastSelections.Load(svc)
+	ind, ok := g_lastSelections.Load(svc)
 	var index int
 	if !ok {
 		index = rand.Intn(l)
@@ -87,7 +87,7 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	backend := &backends[index]
 	index++
 	index = index % l
-	lastSelections.Store(svc, index)
+	g_lastSelections.Store(svc, index)
 	return backend, nil
 }
 
@@ -176,7 +176,7 @@ func Random(svc string) (*BackendSrv, error) {
 }
 
 func NextEndpoint(svc string) (*BackendSrv, error) {
-	switch defaultLBPolicy {
+	switch g_defaultLBPolicy {
 	case "RoundRobin":
 		return RoundRobin(svc)
 	case "LeastConn":
