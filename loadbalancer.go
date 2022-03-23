@@ -9,12 +9,10 @@ import (
 )
 
 type BackendSrv struct {
-	ip   string // ip of an endpoint
-	reqs int64  // outstanding number of request
-	// rcvTime  time.Time // when the last request was received
-	rcvTime uint64 // when the last request was received
-	lastRTT uint64
-	// avgRTT   int64
+	ip       string // ip of an endpoint
+	reqs     int64  // outstanding number of request
+	rcvTime  uint64 // when the last request was received
+	lastRTT  uint64
 	wtAvgRTT uint64
 	start    uint64 // start of the hash range assigned to this node
 	end      uint64 // end of the hash range assigned to this node
@@ -69,25 +67,18 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	// we store index as 1 to N
 	// 0 indicates the absence of svc
 	backends, err := getBackendSvcList(svc)
-	// should have also covered l == 0
 	if err != nil {
 		return nil, err
 	}
 
 	l := len(backends)
 
-	// if seed == MaxInt {
-	// 	seed = time.Now().UTC().UnixNano()
-	// }
-	// seed += 1
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 
 	ind, ok := lastSelections.Load(svc)
 	var index int
-	// index, ok := lastSelections[svc]
 	if !ok {
-		// index = 0
 		index = rand.Intn(l)
 	} else {
 		index = ind.(int)
@@ -97,7 +88,6 @@ func RoundRobin(svc string) (*BackendSrv, error) {
 	index++
 	index = index % l
 	lastSelections.Store(svc, index)
-	// lastSelections[svc] = index
 	return backend, nil
 }
 
@@ -109,10 +99,6 @@ func LeastConn(svc string) (*BackendSrv, error) {
 	}
 
 	// P2C Least Conn
-	// if seed == MaxInt {
-	// 	seed = time.Now().UTC().UnixNano()
-	// }
-	// seed += 1
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 	srv1 := &backends[rand.Intn(len(backends))]
@@ -120,12 +106,8 @@ func LeastConn(svc string) (*BackendSrv, error) {
 
 	// var ip string
 	if srv1.reqs < srv2.reqs {
-		// ip = srv2.ip
-		// log.Println("picked:", ip)
 		return srv1, nil
 	}
-	// ip = srv2.ip
-	// log.Println("picked:", ip)
 	return srv2, nil
 }
 
@@ -139,10 +121,6 @@ func LeastTime(svc string) (*BackendSrv, error) {
 	minRTT := uint64(MaxInt)
 	var b *BackendSrv
 
-	// if seed == MaxInt {
-	// 	seed = time.Now().UTC().UnixNano()
-	// }
-	// seed += 1
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 
@@ -177,24 +155,7 @@ func LeastTime(svc string) (*BackendSrv, error) {
 		}
 		it = (it + 1) % ln
 	}
-	// // the original loop
-	// for i := range backends {
-	// 	rcvTime := time.Duration(backends[i].rcvTime)
-	// 	var predTime int64
-	// 	reqs := backends[i].reqs
-	// 	if reqs == 0 {
-	// 		predTime = int64(rcvTime)
-	// 	} else {
-	// 		predTime = (reqs+1)*backends[i].wtAvgRTT - int64(rcvTime)
-	// 	}
 
-	// 	if predTime < minRTT {
-	// 		minRTT = predTime
-	// 		b = &backends[i]
-	// 	}
-	// }
-	// ip := b.ip
-	// log.Println("picked:", ip)
 	return b, nil
 }
 
@@ -206,12 +167,6 @@ func Random(svc string) (*BackendSrv, error) {
 		return nil, err
 	}
 
-	log.Println(backends) // debug
-
-	// if seed == MaxInt {
-	// 	seed = time.Now().UTC().UnixNano()
-	// }
-	// seed += 1
 	seed = time.Now().UTC().UnixNano()
 	rand.Seed(seed)
 

@@ -25,17 +25,13 @@ const (
 
 var (
 	g_redirectUrl string
-	// globalMap     = make(map[string]PathStats) // used for timing
-	globalMap sync.Map
+	globalMap     sync.Map
 )
 
 // used for timing
 type PathStats struct {
-	// Path      string
-	Count uint64
-	// totalTime int64
-	RTT uint64
-	// AvgRTT    int64
+	Count    uint64
+	RTT      uint64
 	wtAvgRTT uint64
 }
 
@@ -75,7 +71,6 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("X-Forwarded-For", s)
 
-	// fmt.Println(r.URL.Path)
 	p.proxy.Transport = &myTransport{}
 	p.proxy.ServeHTTP(w, r)
 }
@@ -127,19 +122,16 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
 	atomic.AddInt64(&backend.reqs, 1)               // a new open request
-	// log.Printf("Host %s with %d requests selected", backend.ip, backend.reqs) // debug
 
 	start := time.Now() // used for timing
 	rcvTime := uint64(start.UnixNano())
 	atomic.StoreUint64(&backend.rcvTime, rcvTime)
 	backend.rcvTime = uint64(start.UnixNano())
 	var client = &http.Client{Timeout: time.Second * 10}
-	// response, err := http.DefaultClient.Do(r)
 	response, err := client.Do(r)
 	elapsed := time.Since(start) // used for timing
 
 	atomic.AddInt64(&backend.reqs, -1) // a request closed
-	// backend.reqs -= 1                  // a request closed
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -197,10 +189,6 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		val := v.(PathStats)
 		val.Count++
 		val.RTT = rtt
-		// val.totalTime += val.RTT
-		// val.AvgRTT = val.totalTime / int64(val.Count)
-		// val.wtAvgRTT = int64(float64(val.wtAvgRTT)*0.5 + float64(val.RTT)*0.5)
-		// A more correct calculation of online average
 		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
 		val.wtAvgRTT = uint64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
 		globalMap.Store(ipString, val)
@@ -208,8 +196,6 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 		var m PathStats
 		m.Count = 1
 		m.RTT = rtt
-		// m.totalTime = m.RTT
-		// m.AvgRTT = m.RTT
 		m.wtAvgRTT = m.RTT
 		globalMap.Store(ipString, m)
 	}
@@ -217,10 +203,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// update timing of the ip
 	b, _ := globalMap.Load(ipString) // we just populated globalMap
 	p := b.(PathStats)
-	// atomic.SwapInt64(&backend.lastRTT, p.RTT)
 	atomic.SwapUint64(&backend.lastRTT, p.RTT)
-	// atomic.SwapInt64(&backend.avgRTT, p.AvgRTT)
-	// atomic.SwapInt64(&backend.wtAvgRTT, p.wtAvgRTT)
 	atomic.SwapUint64(&backend.wtAvgRTT, p.wtAvgRTT)
 }
 
@@ -235,13 +218,9 @@ func main() {
 	fmt.Println("redirecting to:", g_redirectUrl)
 	fmt.Println("User ID:", os.Getuid())
 	proxy := NewProxy(g_redirectUrl)
-	// outMux := http.NewServeMux()
-	// outMux.HandleFunc("/", handleOutgoing)
 	outMux := mux.NewRouter()
 	outMux.PathPrefix("/").HandlerFunc(handleOutgoing)
-	// inMux := http.NewServeMux()
-	// inMux.HandleFunc("/", proxy.handle)
-	// inMux.HandleFunc("/stats", getStats)
+
 	inMux := mux.NewRouter()
 	inMux.HandleFunc("/stats", getStats)
 	inMux.PathPrefix("/").HandlerFunc(proxy.handle)

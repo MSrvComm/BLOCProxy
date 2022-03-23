@@ -44,8 +44,6 @@ func getEndpoints(svcName string) {
 
 	var ep Endpoint
 	err = json.Unmarshal(body, &ep)
-	// epString := string(body)
-	// log.Println("ep:", ep)
 	if err != nil {
 		log.Println("error json unmarshalling: ", err.Error())
 		return
