@@ -10,37 +10,42 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
-	"sync/atomic"
+
+	// "sync/atomic"
 	"time"
+
+	"github.com/MSrvComm/MiCoProxy/controllercomm"
+	"github.com/MSrvComm/MiCoProxy/globals"
+	"github.com/MSrvComm/MiCoProxy/loadbalancer"
+	"github.com/MSrvComm/MiCoProxy/redisops"
 
 	"github.com/gorilla/mux"
 )
 
-const (
-	CLIENTPORT   = ":5000"
-	PROXYINPORT  = ":62081" // which port will the reverse proxy use for making outgoing request
-	PROXYOUTPORT = ":62082" // which port the reverse proxy listens on
-)
+// const (
+// 	CLIENTPORT   = ":5000"
+// 	PROXYINPORT  = ":62081" // which port will the reverse proxy use for making outgoing request
+// 	PROXYOUTPORT = ":62082" // which port the reverse proxy listens on
+// )
 
-var (
-	g_redirectUrl string
-	globalMap     sync.Map
-)
+// var (
+// 	g_redirectUrl string
+// 	globalMap     sync.Map
+// )
 
-// used for timing
-type PathStats struct {
-	Count    uint64
-	RTT      uint64
-	wtAvgRTT uint64
-}
+// // used for timing
+// type PathStats struct {
+// 	Count    uint64
+// 	RTT      uint64
+// 	wtAvgRTT uint64
+// }
 
 type myTransport struct{}
 
 func (t *myTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	response, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
-		log.Print("\n\ncame in error resp here", err)
+		log.Print("\n\ncame in error resp here: ", err)
 		return nil, err
 	}
 
@@ -86,14 +91,14 @@ func addService(s string) bool {
 		return true
 	}
 
-	for _, svc := range g_svcList {
+	for _, svc := range globals.SvcList_g {
 		if svc == s {
 			found = true
 			break
 		}
 	}
 	if !found {
-		g_svcList = append(g_svcList, s)
+		globals.SvcList_g = append(globals.SvcList_g, s)
 	}
 	return found
 }
@@ -103,35 +108,43 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	r.RequestURI = ""
 
 	svc, port, err := net.SplitHostPort(r.Host)
-	if err == nil {
-		found := addService(svc) // add service to list of services
-		if !found {              // first request to service
-			getEndpoints(svc)
-		}
-	} // else we just wing it
+	// if err == nil {
+	// 	found := addService(svc) // add service to list of services
+	// 	if !found {              // first request to service
+	// 		controllercomm.GetEndpoints(svc)
+	// 		// getEndpoints(svc)
+	// 	}
+	// } // else we just wing it
 
 	// // supporting http2
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
 
-	backend, err := NextEndpoint(svc)
+	// get backends from redis
+	backend, err := loadbalancer.Global(svc)
+	log.Println("handleOutgoing", backend) // debug
+	// backend, err := loadbalancer.NextEndpoint(svc)
+	// backend, err := NextEndpoint(svc)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
 		return
 	}
 
-	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
-	atomic.AddInt64(&backend.reqs, 1)               // a new open request
+	r.URL.Host = net.JoinHostPort(backend, port) // use the ip directly
+	// r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
+	// atomic.AddInt64(&backend.Reqs, 1)               // a new open request
 
-	start := time.Now() // used for timing
-	rcvTime := uint64(start.UnixNano())
-	atomic.StoreUint64(&backend.rcvTime, rcvTime)
-	backend.rcvTime = uint64(start.UnixNano())
+	// start := time.Now() // used for timing
+	// rcvTime := uint64(start.UnixNano())
+	// atomic.StoreUint64(&backend.RcvTime, rcvTime)
+	// backend.RcvTime = uint64(start.UnixNano())
 	var client = &http.Client{Timeout: time.Second * 10}
+	redisops.Incr(svc, backend) // increment request count in redis
 	response, err := client.Do(r)
-	elapsed := time.Since(start) // used for timing
+	redisops.Decr(svc, backend) // decrement request count in redis
+	// elapsed := time.Since(start) // used for timing
 
-	atomic.AddInt64(&backend.reqs, -1) // a request closed
+	// atomic.AddInt64(&backend.Reqs, -1) // a request closed
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -178,46 +191,48 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// close(done)
 
 	// system requests and system avg for range hash algo
-	sys_reqs++
-	rtt := uint64(elapsed.Nanoseconds())
-	system_rtt_avg = uint64(float64(system_rtt_avg) + (float64(system_rtt_avg-rtt) / float64(sys_reqs)))
+	// sys_reqs++
+	// rtt := uint64(elapsed.Nanoseconds())
+	// system_rtt_avg = uint64(float64(system_rtt_avg) + (float64(system_rtt_avg-rtt) / float64(sys_reqs)))
 
-	var ip atomic.Value
-	ip.Store(backend.ip)
-	ipString := ip.Load().(string)
-	if v, ok := globalMap.Load(ipString); ok {
-		val := v.(PathStats)
-		val.Count++
-		val.RTT = rtt
-		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
-		val.wtAvgRTT = uint64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
-		globalMap.Store(ipString, val)
-	} else {
-		var m PathStats
-		m.Count = 1
-		m.RTT = rtt
-		m.wtAvgRTT = m.RTT
-		globalMap.Store(ipString, m)
-	}
+	// var ip atomic.Value
+	// ip.Store(backend.Ip)
+	// ipString := ip.Load().(string)
+	// if v, ok := globalMap.Load(ipString); ok {
+	// 	val := v.(PathStats)
+	// 	val.Count++
+	// 	val.RTT = rtt
+	// 	// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
+	// 	val.wtAvgRTT = uint64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
+	// 	globalMap.Store(ipString, val)
+	// } else {
+	// 	var m PathStats
+	// 	m.Count = 1
+	// 	m.RTT = rtt
+	// 	m.wtAvgRTT = m.RTT
+	// 	globalMap.Store(ipString, m)
+	// }
 
-	// update timing of the ip
-	b, _ := globalMap.Load(ipString) // we just populated globalMap
-	p := b.(PathStats)
-	atomic.SwapUint64(&backend.lastRTT, p.RTT)
-	atomic.SwapUint64(&backend.wtAvgRTT, p.wtAvgRTT)
+	// // update timing of the ip
+	// b, _ := globalMap.Load(ipString) // we just populated globalMap
+	// p := b.(PathStats)
+	// atomic.SwapUint64(&backend.LastRTT, p.RTT)
+	// atomic.SwapUint64(&backend.WtAvgRTT, p.wtAvgRTT)
 }
 
 func getStats(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, globalMap)
+	fmt.Fprint(w, globals.GlobalMap_g)
 }
 
 func main() {
-	g_redirectUrl = "http://localhost" + CLIENTPORT
-	fmt.Println("Input Port", PROXYINPORT)
-	fmt.Println("Output Port", PROXYOUTPORT)
-	fmt.Println("redirecting to:", g_redirectUrl)
+	// flush redis
+	redisops.Flush()
+	globals.RedirectUrl_g = "http://localhost" + globals.CLIENTPORT
+	fmt.Println("Input Port", globals.PROXYINPORT)
+	fmt.Println("Output Port", globals.PROXYOUTPORT)
+	fmt.Println("redirecting to:", globals.RedirectUrl_g)
 	fmt.Println("User ID:", os.Getuid())
-	proxy := NewProxy(g_redirectUrl)
+	proxy := NewProxy(globals.RedirectUrl_g)
 	outMux := mux.NewRouter()
 	outMux.PathPrefix("/").HandlerFunc(handleOutgoing)
 
@@ -228,8 +243,9 @@ func main() {
 	// start running the communication server
 	done := make(chan bool)
 	defer close(done)
-	go runComm(done)
+	// go runComm(done)
+	go controllercomm.RunComm(done)
 
-	go func() { log.Fatal(http.ListenAndServe(PROXYINPORT, inMux)) }()
-	log.Fatal(http.ListenAndServe(PROXYOUTPORT, outMux))
+	go func() { log.Fatal(http.ListenAndServe(globals.PROXYINPORT, inMux)) }()
+	log.Fatal(http.ListenAndServe(globals.PROXYOUTPORT, outMux))
 }
