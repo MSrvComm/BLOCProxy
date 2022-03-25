@@ -10,46 +10,29 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"time"
 
+	"github.com/MSrvComm/MiCoProxy/controllercomm"
+	"github.com/MSrvComm/MiCoProxy/globals"
+	"github.com/MSrvComm/MiCoProxy/loadbalancer"
 	"github.com/gorilla/mux"
 )
-
-const (
-	CLIENTPORT   = ":5000"
-	PROXYINPORT  = ":62081" // which port will the reverse proxy use for making outgoing request
-	PROXYOUTPORT = ":62082" // which port the reverse proxy listens on
-)
-
-var (
-	g_redirectUrl string
-	globalMap     sync.Map
-)
-
-// used for timing
-type PathStats struct {
-	Count    uint64
-	RTT      uint64
-	wtAvgRTT uint64
-}
 
 type myTransport struct{}
 
 func (t *myTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	response, err := http.DefaultTransport.RoundTrip(r)
+	resp, err := http.DefaultTransport.RoundTrip(r)
 	if err != nil {
-		log.Print("\n\ncame in error resp here", err)
+		log.Println("Error response in myTransport RoungTrip: ", err)
 		return nil, err
 	}
 
-	_, err = httputil.DumpResponse(response, true) // check if the response is valid
+	_, err = httputil.DumpResponse(resp, true)
 	if err != nil {
-		log.Print("\n\nerror in dump response\n")
+		log.Println("Error in dumping response in myTransport RoundTrip: ", err)
 		return nil, err
 	}
-	return response, err
+	return resp, nil
 }
 
 type Proxy struct {
@@ -64,7 +47,7 @@ func NewProxy(target string) *Proxy {
 
 func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	// set forwarded for header
-	log.Println("incoming") // debug
+	log.Println("incoming") // used for counting incoming requests
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Fatal(err)
@@ -75,27 +58,22 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	p.proxy.ServeHTTP(w, r)
 }
 
-func addService(s string) bool {
+func addService(s string) {
 	// add the service we are looking for to the list of services
 	// assumes we only ever make requests to internal servers
-	found := false
 
-	// if the request is being made to epwatcher then it will create an infinite loop otherwise
-	// we also set a rule that any request to port 30000 is to be ignored
+	// if the request is being made to epwatcher then it will create an infinite loop
+	// we have also set a rule that any request to port 30000 is to be ignored
 	if strings.Contains(s, "epwatcher") {
-		return true
+		return
 	}
 
-	for _, svc := range svcList {
+	for _, svc := range globals.SvcList_g {
 		if svc == s {
-			found = true
-			break
+			return
 		}
 	}
-	if !found {
-		svcList = append(svcList, s)
-	}
-	return found
+	globals.SvcList_g = append(globals.SvcList_g, s)
 }
 
 func handleOutgoing(w http.ResponseWriter, r *http.Request) {
@@ -104,132 +82,57 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	svc, port, err := net.SplitHostPort(r.Host)
 	if err == nil {
-		found := addService(svc) // add service to list of services
-		if !found {              // first request to service
-			getEndpoints(svc)
-		}
-	} // else we just wing it
+		addService(svc)
+	}
 
-	// // supporting http2
-	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
-
-	backend, err := NextEndpoint(svc)
+	backend, err := loadbalancer.NextEndpoint(svc)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
 		return
 	}
 
-	r.URL.Host = net.JoinHostPort(backend.ip, port) // use the ip directly
-	atomic.AddInt64(&backend.reqs, 1)               // a new open request
+	r.URL.Host = net.JoinHostPort(backend.Ip, port)   // use the ip directly
+	globals.Svc2BackendSrvMap_g.Incr(svc, backend.Ip) // a new request
 
-	start := time.Now() // used for timing
-	rcvTime := uint64(start.UnixNano())
-	atomic.StoreUint64(&backend.rcvTime, rcvTime)
-	backend.rcvTime = uint64(start.UnixNano())
-	var client = &http.Client{Timeout: time.Second * 10}
-	response, err := client.Do(r)
-	elapsed := time.Since(start) // used for timing
+	client := &http.Client{Timeout: time.Second * 10}
+	resp, err := client.Do(r)
 
-	atomic.AddInt64(&backend.reqs, -1) // a request closed
-
+	globals.Svc2BackendSrvMap_g.Decr(svc, backend.Ip) // close the request
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
 		return
 	}
 
-	for key, values := range response.Header {
+	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Set(key, value)
 		}
 	}
 
-	// // implementing a flusher
-	// done := make(chan bool)
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <-time.Tick(10 * time.Millisecond):
-	// 			w.(http.Flusher).Flush()
-	// 		case <-done:
-	// 			return
-	// 		}
-	// 	}
-	// }()
-
-	// // supporting trailers
-	// trailerKeys := []string{}
-	// for key := range response.Trailer {
-	// 	trailerKeys = append(trailerKeys, key)
-	// }
-	// w.Header().Set("Trailer", strings.Join(trailerKeys, ","))
-
-	w.WriteHeader(response.StatusCode)
-	io.Copy(w, response.Body)
-
-	// // adding trailers
-	// for key, values := range response.Trailer {
-	// 	for _, value := range values {
-	// 		w.Header().Set(key, value)
-	// 	}
-	// }
-
-	// close(done)
-
-	// system requests and system avg for range hash algo
-	sys_reqs++
-	rtt := uint64(elapsed.Nanoseconds())
-	system_rtt_avg = uint64(float64(system_rtt_avg) + (float64(system_rtt_avg-rtt) / float64(sys_reqs)))
-
-	var ip atomic.Value
-	ip.Store(backend.ip)
-	ipString := ip.Load().(string)
-	if v, ok := globalMap.Load(ipString); ok {
-		val := v.(PathStats)
-		val.Count++
-		val.RTT = rtt
-		// https://stackoverflow.com/questions/28820904/how-to-efficiently-compute-average-on-the-fly-moving-average
-		val.wtAvgRTT = uint64(float64(val.wtAvgRTT) + (float64(val.RTT-val.wtAvgRTT) / float64(val.Count)))
-		globalMap.Store(ipString, val)
-	} else {
-		var m PathStats
-		m.Count = 1
-		m.RTT = rtt
-		m.wtAvgRTT = m.RTT
-		globalMap.Store(ipString, m)
-	}
-
-	// update timing of the ip
-	b, _ := globalMap.Load(ipString) // we just populated globalMap
-	p := b.(PathStats)
-	atomic.SwapUint64(&backend.lastRTT, p.RTT)
-	atomic.SwapUint64(&backend.wtAvgRTT, p.wtAvgRTT)
-}
-
-func getStats(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprint(w, globalMap)
+	w.WriteHeader(resp.StatusCode)
+	io.Copy(w, resp.Body)
 }
 
 func main() {
-	g_redirectUrl = "http://localhost" + CLIENTPORT
-	fmt.Println("Input Port", PROXYINPORT)
-	fmt.Println("Output Port", PROXYOUTPORT)
-	fmt.Println("redirecting to:", g_redirectUrl)
+	globals.RedirectUrl_g = "http://localhost" + globals.CLIENTPORT
+	fmt.Println("Input Port", globals.PROXYINPORT)
+	fmt.Println("Output Port", globals.PROXOUTPORT)
+	fmt.Println("redirecting to:", globals.RedirectUrl_g)
 	fmt.Println("User ID:", os.Getuid())
-	proxy := NewProxy(g_redirectUrl)
+	proxy := NewProxy(globals.RedirectUrl_g)
 	outMux := mux.NewRouter()
 	outMux.PathPrefix("/").HandlerFunc(handleOutgoing)
 
 	inMux := mux.NewRouter()
-	inMux.HandleFunc("/stats", getStats)
 	inMux.PathPrefix("/").HandlerFunc(proxy.handle)
 
 	// start running the communication server
 	done := make(chan bool)
 	defer close(done)
-	go runComm(done)
+	go controllercomm.RunComm(done)
 
-	go func() { log.Fatal(http.ListenAndServe(PROXYINPORT, inMux)) }()
-	log.Fatal(http.ListenAndServe(PROXYOUTPORT, outMux))
+	go func() { log.Fatal(http.ListenAndServe(globals.PROXYINPORT, inMux)) }()
+	log.Fatal(http.ListenAndServe(globals.PROXOUTPORT, outMux))
 }
