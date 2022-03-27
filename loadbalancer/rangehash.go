@@ -22,7 +22,6 @@ var (
 	System_rtt_avg_g = uint64(0)
 	System_reqs_g    = uint64(0)
 	system_range_g   = uint64(math.Pow(2, PRIME) - 1)
-	// initial_dist     = false
 )
 
 func hash(s string) uint64 {
@@ -55,11 +54,6 @@ func rangeHashGreedy(svc string) (*globals.BackendSrv, error) {
 		return nil, err
 	}
 
-	// if !initial_dist {
-	// 	hashDistribution(backends, len(backends))
-	// 	initial_dist = true
-	// }
-
 	backend2return := &backends[0]
 	for i := range backends {
 		if uint64(reqHash) >= (&backends[i]).Start && uint64(reqHash) <= (&backends[i]).End {
@@ -71,7 +65,7 @@ func rangeHashGreedy(svc string) (*globals.BackendSrv, error) {
 	}
 
 	// greedy - redistribute on every request
-	// redistributeHash(svc)
+	redistributeHash(svc)
 
 	return backend2return, nil
 }
