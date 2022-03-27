@@ -86,7 +86,8 @@ func (bm *backendSrvMap) Decr(svc, ip string) {
 
 var (
 	// DefaultLBPolicy_g   = "LeastConn"
-	DefaultLBPolicy_g   = "RangeHash"
+	// DefaultLBPolicy_g   = "RangeHash"
+	DefaultLBPolicy_g   = "RangeHashRounds"
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services

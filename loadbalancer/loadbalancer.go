@@ -50,10 +50,10 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 
 	// var ip string
 	if srv1.Reqs < srv2.Reqs {
-		log.Println("LeastConn: backend selected: ", srv1)
+		// log.Println("LeastConn: backend selected: ", srv1)
 		return srv1, nil
 	}
-	log.Println("LeastConn: backend selected: ", srv2)
+	// log.Println("LeastConn: backend selected: ", srv2)
 	return srv2, nil
 }
 
@@ -62,8 +62,9 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	case "LeastConn":
 		return LeastConn(svc)
 	case "RangeHash":
-		// return rangeHashRounds(svc)
 		return rangeHashGreedy(svc)
+	case "RangeHashRounds":
+		return rangeHashRounds(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

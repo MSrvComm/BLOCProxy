@@ -57,9 +57,9 @@ func rangeHashGreedy(svc string) (*globals.BackendSrv, error) {
 	backend2return := &backends[0]
 	for i := range backends {
 		if uint64(reqHash) >= (&backends[i]).Start && uint64(reqHash) <= (&backends[i]).End {
-			log.Println((&backends[i]).Start)
-			log.Println("HASH:", reqHash) // debug
-			log.Println((&backends[i]).End)
+			// log.Println((&backends[i]).Start)
+			// log.Println("HASH:", reqHash) // debug
+			// log.Println((&backends[i]).End)
 			backend2return = &backends[i]
 		}
 	}
