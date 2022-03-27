@@ -87,6 +87,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend, err := loadbalancer.NextEndpoint(svc)
 	if err != nil {
+		log.Println("Error fetching backend:", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
 		return
@@ -96,9 +97,12 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	globals.Svc2BackendSrvMap_g.Incr(svc, backend.Ip) // a new request
 
 	client := &http.Client{Timeout: time.Second * 10}
+	start := time.Now()
 	resp, err := client.Do(r)
 
 	globals.Svc2BackendSrvMap_g.Decr(svc, backend.Ip) // close the request
+	elapsed := time.Since(start).Nanoseconds()
+
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprint(w, err.Error())
@@ -113,6 +117,9 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+
+	loadbalancer.System_reqs_g++
+	loadbalancer.System_rtt_avg_g = uint64(float64(loadbalancer.System_rtt_avg_g) + (float64(elapsed) / float64(loadbalancer.System_reqs_g)))
 }
 
 func main() {

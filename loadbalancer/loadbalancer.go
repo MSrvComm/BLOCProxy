@@ -20,19 +20,19 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	// else if
 	// make entries into backendSrvs here
 	var backendSrvs []globals.BackendSrv
-	// ips := globals.Endpoints_g[svc]
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
 		for _, ip := range ips {
-			// backendSrvs = append(backendSrvs, BackendSrv{ip: ip, reqs: 0, lastRTT: 0, avgRTT: 0})
 			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, LastRTT: 0})
 		}
+		// call the hash distribution service here
+		hashDistribution(&backendSrvs, len(ips))
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
 	}
 	// else
-	return nil, errors.New("no backend found")
+	return nil, errors.New("no backends found")
 }
 
 func LeastConn(svc string) (*globals.BackendSrv, error) {
@@ -50,8 +50,10 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 
 	// var ip string
 	if srv1.Reqs < srv2.Reqs {
+		log.Println("LeastConn: backend selected: ", srv1)
 		return srv1, nil
 	}
+	log.Println("LeastConn: backend selected: ", srv2)
 	return srv2, nil
 }
 
@@ -59,6 +61,9 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	switch globals.DefaultLBPolicy_g {
 	case "LeastConn":
 		return LeastConn(svc)
+	case "RangeHash":
+		// return rangeHashRounds(svc)
+		return rangeHashGreedy(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

@@ -1,6 +1,8 @@
 package globals
 
-import "sync"
+import (
+	"sync"
+)
 
 // BackendSrv stores information for internal decision making
 type BackendSrv struct {
@@ -9,12 +11,15 @@ type BackendSrv struct {
 	RcvTime  uint64
 	LastRTT  uint64
 	WtAvgRTT uint64
+	Start    uint64
+	End      uint64
+	Grp      bool
 }
 
 // Endpoints store information from the control plane
 type Endpoints struct {
-	Svc string   `json:"Svc"`
-	Ips []string `json:"Ips"`
+	Svcname string   `json:"Svcname"`
+	Ips     []string `json:"Ips"`
 }
 
 type endpointsMap struct {
@@ -80,11 +85,12 @@ func (bm *backendSrvMap) Decr(svc, ip string) {
 }
 
 var (
-	DefaultLBPolicy_g   = "LeastConn"
+	// DefaultLBPolicy_g   = "LeastConn"
+	DefaultLBPolicy_g   = "RangeHash"
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services
-	SvcList_g           = []string{""}       // knows all service names
+	SvcList_g           = make([]string, 0)  // knows all service names
 	// Svc2BackendSrvMap_g = make(map[string][]BackendSrv) // holds all backends for services
 	// Endpoints_g         = make(map[string][]string) // all endpoints for all services
 )
