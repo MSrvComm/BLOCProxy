@@ -10,7 +10,6 @@ import (
 	"github.com/MSrvComm/MiCoProxy/globals"
 )
 
-// var defaultLBPolicy_g = "RangeHash"
 var defaultLBPolicy_g string
 
 const BitsPerWord = 32 << (^uint(0) >> 63)
