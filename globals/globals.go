@@ -6,11 +6,13 @@ import (
 
 // BackendSrv stores information for internal decision making
 type BackendSrv struct {
+	RW       sync.RWMutex
 	Ip       string
 	Reqs     int64
 	RcvTime  uint64
 	LastRTT  uint64
-	WtAvgRTT uint64
+	WtAvgRTT float64
+	Count    uint64
 	Start    uint64
 	End      uint64
 	Grp      bool
@@ -67,8 +69,9 @@ func (bm *backendSrvMap) Put(svc string, backends []BackendSrv) {
 func (bm *backendSrvMap) Incr(svc, ip string) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	for ind, srv := range bm.mp[svc] {
-		if srv.Ip == ip {
+
+	for ind := range bm.mp[svc] {
+		if bm.mp[svc][ind].Ip == ip {
 			bm.mp[svc][ind].Reqs++
 		}
 	}
@@ -77,17 +80,14 @@ func (bm *backendSrvMap) Incr(svc, ip string) {
 func (bm *backendSrvMap) Decr(svc, ip string) {
 	bm.mu.Lock()
 	defer bm.mu.Unlock()
-	for ind, srv := range bm.mp[svc] {
-		if srv.Ip == ip {
+	for ind := range bm.mp[svc] {
+		if bm.mp[svc][ind].Ip == ip {
 			bm.mp[svc][ind].Reqs--
 		}
 	}
 }
 
 var (
-	// DefaultLBPolicy_g   = "LeastConn"
-	// DefaultLBPolicy_g   = "RangeHash"
-	DefaultLBPolicy_g   = "RangeHashRounds"
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services

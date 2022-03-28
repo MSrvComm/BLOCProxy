@@ -119,7 +119,15 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 
 	loadbalancer.System_reqs_g++
-	loadbalancer.System_rtt_avg_g = uint64(float64(loadbalancer.System_rtt_avg_g) + (float64(elapsed) / float64(loadbalancer.System_reqs_g)))
+	rtt := uint64(elapsed)
+	loadbalancer.System_rtt_avg_g = uint64(float64(loadbalancer.System_rtt_avg_g) + (float64(rtt-loadbalancer.System_rtt_avg_g) / float64(loadbalancer.System_reqs_g)))
+
+	backend.RW.Lock()
+	defer backend.RW.Unlock()
+	backend.RcvTime = uint64(start.UnixNano())
+	backend.Count++
+	delta := float64(float64(elapsed)-backend.WtAvgRTT) / float64(backend.Count)
+	backend.WtAvgRTT += delta
 }
 
 func main() {
