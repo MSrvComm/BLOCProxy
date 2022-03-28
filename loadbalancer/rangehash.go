@@ -1,6 +1,7 @@
 package loadbalancer
 
 import (
+	"fmt"
 	"hash/crc64"
 	"log"
 	"math"
@@ -35,8 +36,6 @@ func hashDistribution(backendSrvs *[]globals.BackendSrv, n int) {
 	for i := 0; i < n; i++ {
 		(*backendSrvs)[i].Start = start
 		(*backendSrvs)[i].End = end
-		log.Println("Hash Distrbution: Start:", start)
-		log.Println("Hash Distrbution: End:", end)
 		start = end + 1
 		end = start + nodeDefault
 	}
@@ -47,7 +46,9 @@ func rangeHashGreedy(svc string) (*globals.BackendSrv, error) {
 	// generate a random hash for every request
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
-	reqHash := rand.Int63() % int64(system_range_g)
+	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
+	reqHash := hash(ip)
+	// reqHash := rand.Int63() % int64(system_range_g)
 
 	backends, err := GetBackendSvcList(svc)
 	if err != nil {
@@ -57,9 +58,6 @@ func rangeHashGreedy(svc string) (*globals.BackendSrv, error) {
 	backend2return := &backends[0]
 	for i := range backends {
 		if uint64(reqHash) >= (&backends[i]).Start && uint64(reqHash) <= (&backends[i]).End {
-			// log.Println((&backends[i]).Start)
-			// log.Println("HASH:", reqHash) // debug
-			// log.Println((&backends[i]).End)
 			backend2return = &backends[i]
 		}
 	}
@@ -74,8 +72,9 @@ func rangeHashRounds(svc string) (*globals.BackendSrv, error) {
 	log.Println("Range Hash Rounds")
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
-
-	reqHash := rand.Int63n(int64(system_range_g))
+	ip := fmt.Sprintf("%d.%d.%d.%d", rand.Intn(255), rand.Intn(255), rand.Intn(255), rand.Intn(255))
+	reqHash := hash(ip)
+	// reqHash := rand.Int63n(int64(system_range_g))
 
 	backends, err := GetBackendSvcList(svc)
 	if err != nil {

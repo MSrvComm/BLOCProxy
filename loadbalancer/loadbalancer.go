@@ -4,10 +4,14 @@ import (
 	"errors"
 	"log"
 	"math/rand"
+	"os"
 	"time"
 
 	"github.com/MSrvComm/MiCoProxy/globals"
 )
+
+// var defaultLBPolicy_g = "RangeHash"
+var defaultLBPolicy_g string
 
 const BitsPerWord = 32 << (^uint(0) >> 63)
 const MaxInt = 1<<(BitsPerWord-1) - 1
@@ -50,21 +54,24 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 
 	// var ip string
 	if srv1.Reqs < srv2.Reqs {
-		// log.Println("LeastConn: backend selected: ", srv1)
 		return srv1, nil
 	}
-	// log.Println("LeastConn: backend selected: ", srv2)
 	return srv2, nil
 }
 
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
-	switch globals.DefaultLBPolicy_g {
+	if defaultLBPolicy_g == "" {
+		defaultLBPolicy_g = os.Getenv("LBPolicy")
+	}
+	switch defaultLBPolicy_g {
 	case "LeastConn":
 		return LeastConn(svc)
 	case "RangeHash":
 		return rangeHashGreedy(svc)
 	case "RangeHashRounds":
 		return rangeHashRounds(svc)
+	case "LeastTime":
+		return leasttime(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

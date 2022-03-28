@@ -12,11 +12,21 @@ The `latest` version of the MiCoProxy docker now stands abandoned. The algorithm
 - `ratnadeepb/micoproxy:rangehash`
 - `ratnadeepb/micoproxy:rangehashrounds`
 
+## Changing LoadBalancer Policy
+
+Change the `LBPolicy` environment variable for the `micoproxy` container in the deployment yaml.
+
+```yaml
+env:
+- name: LBPolicy
+    value: "RangeHash"
+```
+
 ## Building the Proxy
 
 ```bash
-sudo docker build -t ratnadeepb/micoproxy:rangehash .
-sudo docker push ratnadeepb/micoproxy:rangehash
+sudo docker build -t ratnadeepb/micoproxy:latest .
+sudo docker push ratnadeepb/micoproxy:latest
 ```
 
 ## Running the MiCo tool
