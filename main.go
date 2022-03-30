@@ -36,6 +36,7 @@ func (t *myTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 type Proxy struct {
+	reqs   int
 	target *url.URL
 	proxy  *httputil.ReverseProxy
 }
@@ -48,14 +49,17 @@ func NewProxy(target string) *Proxy {
 func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	// set forwarded for header
 	log.Println("incoming") // used for counting incoming requests
+	p.reqs++
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
 	w.Header().Set("X-Forwarded-For", s)
+	w.Header().Set("REQS", fmt.Sprint(p.reqs))
 
 	p.proxy.Transport = &myTransport{}
 	p.proxy.ServeHTTP(w, r)
+	p.reqs--
 }
 
 func addService(s string) {
@@ -102,6 +106,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	globals.Svc2BackendSrvMap_g.Decr(svc, backend.Ip) // close the request
 	elapsed := time.Since(start).Nanoseconds()
+	
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -124,10 +129,11 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
-	backend.RcvTime = uint64(start.UnixNano())
+	backend.RcvTime = start
 	backend.Count++
 	delta := float64(float64(elapsed)-backend.WtAvgRTT) / float64(backend.Count)
 	backend.WtAvgRTT += delta
+	backend.NoSched = false // since we heard from this backend we can include it in scheduling decisions
 }
 
 func main() {
