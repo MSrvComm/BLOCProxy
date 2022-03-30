@@ -26,7 +26,8 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
 		for _, ip := range ips {
-			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, LastRTT: 0})
+			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, LastRTT: 0, WtAvgRTT: 0,
+				NoSched: false, RcvTime: time.Now(), Grp: true})
 		}
 		// call the hash distribution service here
 		hashDistribution(&backendSrvs, len(ips))
