@@ -2,6 +2,7 @@ package globals
 
 import (
 	"sync"
+	"time"
 )
 
 // BackendSrv stores information for internal decision making
@@ -9,9 +10,10 @@ type BackendSrv struct {
 	RW       sync.RWMutex
 	Ip       string
 	Reqs     int64
-	RcvTime  uint64
+	RcvTime  time.Time
 	LastRTT  uint64
 	WtAvgRTT float64
+	NoSched  bool
 	Count    uint64
 	Start    uint64
 	End      uint64
