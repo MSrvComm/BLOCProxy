@@ -55,10 +55,10 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	w.Header().Set("X-Forwarded-For", s)
-	w.Header().Set("REQS", fmt.Sprint(p.reqs))
 
 	p.proxy.Transport = &myTransport{}
 	p.proxy.ServeHTTP(w, r)
+	w.Header().Set("Reqs", fmt.Sprint(p.reqs))
 	p.reqs--
 }
 
@@ -106,7 +106,6 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	globals.Svc2BackendSrvMap_g.Decr(svc, backend.Ip) // close the request
 	elapsed := time.Since(start).Nanoseconds()
-	
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -122,6 +121,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
+	// rqs, _ := strconv.Atoi(resp.Header.Get("Reqs"))
 
 	loadbalancer.System_reqs_g++
 	rtt := uint64(elapsed)
@@ -129,6 +129,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
+	// backend.Reqs = int64(rqs) // update active request on the backend metadata
 	backend.RcvTime = start
 	backend.Count++
 	delta := float64(float64(elapsed)-backend.WtAvgRTT) / float64(backend.Count)
