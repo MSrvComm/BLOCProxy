@@ -48,12 +48,21 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 	for {
 		rtt := backends[it].WtAvgRTT
 		ts := float64(time.Since(backends[it].RcvTime))
-		rqs := backends[it].Reqs
+		// rqs := backends[it].Reqs
+
+		// modulate number of requests for the backend by weight
+		// if we have been sending more requests than others, this is adjusted downwards and vice versa
+		rqs := float64(backends[it].Reqs+1) * backends[it].Wt
 		// lastRtt := backends[it].LastRTT
 
 		// if rqs != 0 && lastRtt > RTT_THRESHOLD*System_rtt_avg_g {
 		// 	backends[it].NoSched = true
 		// }
+
+		// backend can be scheduled to if there are no active requests on it
+		if backends[it].NoSched && rqs == 0 {
+			backends[it].NoSched = false
+		}
 
 		// don't bother with servers not in scheduling
 		if backends[it].NoSched {
@@ -64,7 +73,8 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 			continue
 		}
 
-		predTime = float64(rqs+1)*rtt - ts
+		// predTime = float64(rqs+1)*rtt - ts
+		predTime = (rqs+1)*rtt - ts
 
 		if predTime < 0 {
 			predTime = 0
@@ -89,6 +99,9 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 	// rqs != 0 is a backend overloaded
 	if rqs == 0 {
 		rqs = 1 // we don't want to compare `ts` against 0 in the next step
+		// if rtt != 0 && ts > RQS_THRESHOLD*(rtt) {
+		// backend2Return.NoSched = true
+		// }
 	}
 	if rtt != 0 && ts > RQS_THRESHOLD*(rtt*float64(rqs)) {
 		backend2Return.NoSched = true

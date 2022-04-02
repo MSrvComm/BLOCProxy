@@ -9,6 +9,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,7 +122,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
-	// rqs, _ := strconv.Atoi(resp.Header.Get("Reqs"))
+	rqs, _ := strconv.Atoi(resp.Header.Get("Reqs"))
 
 	loadbalancer.System_reqs_g++
 	rtt := uint64(elapsed)
@@ -129,7 +130,10 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
-	// backend.Reqs = int64(rqs) // update active request on the backend metadata
+	// ratio of number of requests received from this backend
+	// and number of requests received from all backends
+	// the 1s protect against division by 0 or the ratio being 0
+	backend.Wt = 0.5*backend.Wt + 0.5*float64(backend.Reqs+1)/float64(rqs+1)
 	backend.RcvTime = start
 	backend.Count++
 	delta := float64(float64(elapsed)-backend.WtAvgRTT) / float64(backend.Count)

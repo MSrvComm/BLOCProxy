@@ -10,6 +10,7 @@ type BackendSrv struct {
 	RW       sync.RWMutex
 	Ip       string
 	Reqs     int64
+	Wt       float64
 	RcvTime  time.Time
 	LastRTT  uint64
 	WtAvgRTT float64
