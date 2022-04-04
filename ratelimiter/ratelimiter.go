@@ -1,3 +1,8 @@
+/* This rate limiter has been largely influenced by the message publishing rate limiter
+ * developed at Ably.
+ * https://medium.com/ably-realtime/how-adopting-a-distributed-rate-limiting-helps-scale-your-platform-1afdf3944b5a
+ */
+
 package ratelimiter
 
 import (
@@ -21,12 +26,12 @@ type client struct {
 	lastUpdated time.Time
 }
 
-func (c *client) updateRejectRate() {
+func (c *client) updateRejectRate(ln int) {
 	// log.Println("updateRejectRate lock step")
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	// log.Println("After updateRejectRate lock step")
-	c.probReject = (c.reqSent / float64(Capacity)) * slope
+	c.probReject = (c.reqSent / float64(Capacity/ln)) * slope
 	// log.Println("RateLimiter reject rate:", c.probReject, "for client:", c.ip)
 }
 
@@ -79,7 +84,7 @@ func (c *clientsStruct) update(ip string) {
 	}
 	clnt.mu.Unlock()
 	// log.Println("update: calling client reject")
-	clnt.updateRejectRate()
+	clnt.updateRejectRate(c.getLen())
 }
 
 func RejectRequest(ip string) bool {
