@@ -1,7 +1,6 @@
 package ratelimiter
 
 import (
-	"log"
 	"math/rand"
 	"sync"
 	"time"
@@ -9,7 +8,7 @@ import (
 
 var (
 	// slo     = (time.Second * 3).Nanoseconds()
-	capacity = 10 // selecting a number randomly for now
+	Capacity int // selecting a number randomly for now
 	clients  clientsStruct
 	slope    = 0.33
 )
@@ -23,12 +22,12 @@ type client struct {
 }
 
 func (c *client) updateRejectRate() {
-	log.Println("updateRejectRate lock step")
+	// log.Println("updateRejectRate lock step")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	log.Println("After updateRejectRate lock step")
-	c.probReject = (c.reqSent / float64(capacity)) * slope
-	log.Println("RateLimiter reject rate:", c.probReject, "for client:", c.ip)
+	// log.Println("After updateRejectRate lock step")
+	c.probReject = (c.reqSent / float64(Capacity)) * slope
+	// log.Println("RateLimiter reject rate:", c.probReject, "for client:", c.ip)
 }
 
 type clientsStruct struct {
@@ -38,6 +37,10 @@ type clientsStruct struct {
 
 func NewClients() {
 	clients = clientsStruct{mu: sync.Mutex{}, clients: make([]*client, 0)}
+}
+
+func (c *clientsStruct) getLen() int {
+	return len(c.clients)
 }
 
 func (c *clientsStruct) addClient(ip string) {
@@ -59,14 +62,14 @@ func (c *clientsStruct) search(ip string) *client {
 }
 
 func (c *clientsStruct) update(ip string) {
-	log.Println("RateLimiter update called with", ip)
+	// log.Println("RateLimiter update called with", ip)
 	clnt := c.search(ip)
 	if clnt == nil {
 		return
 	}
-	log.Println("Update lock step")
+	// log.Println("Update lock step")
 	clnt.mu.Lock()
-	log.Println("After update lock step")
+	// log.Println("After update lock step")
 	ts := time.Since(clnt.lastUpdated)
 	if ts > time.Second {
 		clnt.lastUpdated = time.Now()
@@ -75,20 +78,20 @@ func (c *clientsStruct) update(ip string) {
 		clnt.reqSent++
 	}
 	clnt.mu.Unlock()
-	log.Println("update: calling client reject")
+	// log.Println("update: calling client reject")
 	clnt.updateRejectRate()
 }
 
 func RejectRequest(ip string) bool {
 	clients.update(ip)
-	log.Println("RateLimiter returned from update")
+	// log.Println("RateLimiter returned from update")
 	clnt := clients.search(ip)
 	if clnt == nil {
-		log.Println("Registering client:", ip)
+		// log.Println("Registering client:", ip)
 		clients.addClient(ip)
 		return true
 	}
 	rand.Seed(int64(time.Now().Nanosecond()))
-	log.Println("RjectRequest sending back:", rand.Float64() < clnt.probReject)
+	// log.Println("RjectRequest sending back:", rand.Float64() < clnt.probReject)
 	return rand.Float64() < clnt.probReject
 }

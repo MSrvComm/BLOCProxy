@@ -166,6 +166,7 @@ func main() {
 	inMux.PathPrefix("/").HandlerFunc(proxy.handle)
 
 	ratelimiter.NewClients()
+	ratelimiter.Capacity, _ = strconv.Atoi(os.Getenv("CAP"))
 
 	// start running the communication server
 	done := make(chan bool)
