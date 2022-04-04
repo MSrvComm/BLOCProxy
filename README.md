@@ -5,6 +5,7 @@ The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy) an
 ## MiCoProxy versions
 
 The `latest` version of the MiCoProxy docker now stands abandoned. The algorithms are separately deployed as their own algorithms:
+
 - `ratnadeepb/micoproxy:leasttime`
 - `ratnadeepb/micoproxy:leastconn`
 - `ratnadeepb/micoproxy:random`
@@ -19,7 +20,7 @@ Change the `LBPolicy` environment variable for the `micoproxy` container in the 
 ```yaml
 env:
 - name: LBPolicy
-    value: "RangeHash"
+    value: "LeastConn"
 ```
 
 ## Building the Proxy
