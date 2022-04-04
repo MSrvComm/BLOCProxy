@@ -59,7 +59,7 @@ func getAllEndpoints() {
 	}
 }
 
-func runComm(done chan bool) {
+func RunComm(done chan bool) {
 	go func() {
 		for {
 			select {
