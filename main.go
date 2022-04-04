@@ -16,6 +16,7 @@ import (
 	"github.com/MSrvComm/MiCoProxy/controllercomm"
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/loadbalancer"
+	"github.com/MSrvComm/MiCoProxy/ratelimiter"
 	"github.com/gorilla/mux"
 )
 
@@ -50,11 +51,17 @@ func NewProxy(target string) *Proxy {
 func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	// set forwarded for header
 	log.Println("incoming") // used for counting incoming requests
-	p.reqs++
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
+	if ratelimiter.RejectRequest(s) {
+		log.Println("Request Rejected")
+		w.WriteHeader(http.StatusForbidden)
+		return
+	}
+	log.Println("RateLimiter passed in handle")
+	p.reqs++
 	w.Header().Set("X-Forwarded-For", s)
 
 	p.proxy.Transport = &myTransport{}
@@ -130,6 +137,10 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
+	if resp.StatusCode != 200 {
+		backend.NoSched = true
+		return
+	}
 	// ratio of number of requests received from this backend
 	// and number of requests received from all backends
 	// the 1s protect against division by 0 or the ratio being 0
@@ -153,6 +164,8 @@ func main() {
 
 	inMux := mux.NewRouter()
 	inMux.PathPrefix("/").HandlerFunc(proxy.handle)
+
+	ratelimiter.NewClients()
 
 	// start running the communication server
 	done := make(chan bool)
