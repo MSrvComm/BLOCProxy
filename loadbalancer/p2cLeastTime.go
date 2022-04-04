@@ -40,7 +40,8 @@ func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
 		// backend can be scheduled to if there are no active requests on it
 		if backends[index2].NoSched && backends[index2].Reqs == 0 {
 			backends[index2].NoSched = false
-		} else if index1 == index2 || backends[index2].NoSched {
+			// } else if index1 == index2 || backends[index2].NoSched {
+		} else if backends[index2].NoSched {
 			index2 = rand.Intn(ln)
 		} else {
 			break
