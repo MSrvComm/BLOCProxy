@@ -137,6 +137,7 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
+	// error response
 	if resp.StatusCode != 200 {
 		backend.NoSched = true
 		return
@@ -166,7 +167,12 @@ func main() {
 	inMux.PathPrefix("/").HandlerFunc(proxy.handle)
 
 	ratelimiter.NewClients()
-	ratelimiter.Capacity, _ = strconv.Atoi(os.Getenv("CAP"))
+	cap := os.Getenv("CAP")
+	// ratelimiter.Capacity, _ = strconv.Atoi(cap)
+	ratelimiter.Capacity, _ = strconv.ParseFloat(cap, 64)
+	// log.Println("Main: Capacity", ratelimiter.Capacity)
+	// wind, _ := strconv.Atoi(os.Getenv("WINDOW"))
+	// ratelimiter.Window = wind
 
 	// start running the communication server
 	done := make(chan bool)
