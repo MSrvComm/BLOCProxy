@@ -168,11 +168,7 @@ func main() {
 
 	ratelimiter.NewClients()
 	cap := os.Getenv("CAP")
-	// ratelimiter.Capacity, _ = strconv.Atoi(cap)
 	ratelimiter.Capacity, _ = strconv.ParseFloat(cap, 64)
-	// log.Println("Main: Capacity", ratelimiter.Capacity)
-	// wind, _ := strconv.Atoi(os.Getenv("WINDOW"))
-	// ratelimiter.Window = wind
 
 	// start running the communication server
 	done := make(chan bool)
