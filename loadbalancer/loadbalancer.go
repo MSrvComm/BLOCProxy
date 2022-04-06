@@ -2,8 +2,6 @@ package loadbalancer
 
 import (
 	"errors"
-	"log"
-	"math/rand"
 	"os"
 	"time"
 
@@ -37,26 +35,6 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	}
 	// else
 	return nil, errors.New("no backends found")
-}
-
-func LeastConn(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
-	if err != nil {
-		return nil, err
-	}
-
-	// P2C Least Conn
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	srv1 := &backends[rand.Intn(len(backends))]
-	srv2 := &backends[rand.Intn(len(backends))]
-
-	// var ip string
-	if srv1.Reqs < srv2.Reqs {
-		return srv1, nil
-	}
-	return srv2, nil
 }
 
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {

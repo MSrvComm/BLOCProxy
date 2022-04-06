@@ -13,10 +13,19 @@ import (
 	"strings"
 	"time"
 
+	"github.com/MSrvComm/MiCoProxy/aqm"
 	"github.com/MSrvComm/MiCoProxy/controllercomm"
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/loadbalancer"
 	"github.com/gorilla/mux"
+)
+
+// var SLO = time.Second
+var (
+	reqsRecvd_g  = 0
+	reset_g      = time.Second * 2
+	activeReqs_g = 0
+	aqm_g        = aqm.NewAQM()
 )
 
 type myTransport struct{}
@@ -51,16 +60,26 @@ func (p *Proxy) handle(w http.ResponseWriter, r *http.Request) {
 	// set forwarded for header
 	log.Println("incoming") // used for counting incoming requests
 	p.reqs++
+	reqsRecvd_g++  // it will be reset by the cleanupStats function
+	activeReqs_g++ // count active requests in the pod
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	w.Header().Set("X-Forwarded-For", s)
 
 	p.proxy.Transport = &myTransport{}
+	start := time.Now()
 	p.proxy.ServeHTTP(w, r)
-	w.Header().Set("Reqs", fmt.Sprint(p.reqs))
+	elapsed := time.Since(start)
+	if aqm_g.IsOverThreshold(time.Duration(elapsed)) {
+		w.Header().Set("SCHED", "FALSE")
+	}
+	// w.Header().Set("Reqs", fmt.Sprint(p.reqs))
+	w.Header().Set("REQS", fmt.Sprintf("%d", reqsRecvd_g))
 	p.reqs--
+	activeReqs_g--
 }
 
 func addService(s string) {
@@ -121,12 +140,22 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(resp.StatusCode)
+	// // Which pod just served this request
+	// w.Header().Set("IP", backend.Ip)
+	// // are we nearing SLO?
+	// if float64(elapsed) > 0.8*float64(SLO) {
+	// 	w.Header().Set("SCHEDULE", "FALSE")
+	// } else {
+	// 	w.Header().Set("SCHEDULE", "TRUE")
+	// }
+
 	io.Copy(w, resp.Body)
-	rqs, _ := strconv.Atoi(resp.Header.Get("Reqs"))
+	rqs, _ := strconv.Atoi(resp.Header.Get("REQS"))
 
 	loadbalancer.System_reqs_g++
 	rtt := uint64(elapsed)
-	loadbalancer.System_rtt_avg_g = uint64(float64(loadbalancer.System_rtt_avg_g) + (float64(rtt-loadbalancer.System_rtt_avg_g) / float64(loadbalancer.System_reqs_g)))
+	loadbalancer.System_rtt_avg_g = uint64(float64(loadbalancer.System_rtt_avg_g) +
+		(float64(rtt-loadbalancer.System_rtt_avg_g) / float64(loadbalancer.System_reqs_g)))
 
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
@@ -135,10 +164,30 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// the 1s protect against division by 0 or the ratio being 0
 	backend.Wt = 0.5*backend.Wt + 0.5*float64(backend.Reqs+1)/float64(rqs+1)
 	backend.RcvTime = start
+	if sched := resp.Header.Get("SCHED"); sched != "" {
+		backend.NoSched = true
+	} else {
+		backend.NoSched = false // since we heard from this backend we can include it in scheduling decisions
+	}
+	// backend.Reqs = int64(rqs)
 	backend.Count++
 	delta := float64(float64(elapsed)-backend.WtAvgRTT) / float64(backend.Count)
 	backend.WtAvgRTT += delta
-	backend.NoSched = false // since we heard from this backend we can include it in scheduling decisions
+}
+
+func cleanupStats(done chan bool) {
+	ticker := time.NewTicker(reset_g)
+
+	for {
+		select {
+		case <-ticker.C:
+			log.Println("Reqs recvd in the last", reset_g, "seconds:", reqsRecvd_g)
+			reqsRecvd_g = 0 // reset the number of requests received by this system every reset_g interval
+		case <-done:
+			return
+		}
+	}
+
 }
 
 func main() {
@@ -158,6 +207,11 @@ func main() {
 	done := make(chan bool)
 	defer close(done)
 	go controllercomm.RunComm(done)
+
+	// reset the number of received requests to this pod
+	reset := make(chan bool)
+	defer close(reset)
+	go cleanupStats(reset)
 
 	go func() { log.Fatal(http.ListenAndServe(globals.PROXYINPORT, inMux)) }()
 	log.Fatal(http.ListenAndServe(globals.PROXOUTPORT, outMux))

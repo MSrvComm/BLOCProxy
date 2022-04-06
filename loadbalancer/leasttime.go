@@ -52,7 +52,8 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 
 		// modulate number of requests for the backend by weight
 		// if we have been sending more requests than others, this is adjusted downwards and vice versa
-		rqs := float64(backends[it].Reqs+1) * backends[it].Wt
+		// rqs := float64(backends[it].Reqs+1) * backends[it].Wt
+		rqs := float64(backends[it].Reqs + 1)
 		// lastRtt := backends[it].LastRTT
 
 		// if rqs != 0 && lastRtt > RTT_THRESHOLD*System_rtt_avg_g {
