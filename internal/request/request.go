@@ -32,5 +32,5 @@ func (rq *Request) MakeRequest(link string) {
 	}
 	rq.w.WriteHeader(resp.StatusCode)
 	io.Copy(rq.w, resp.Body)
-	rq.d <- true
+	rq.d <- true // release the handler function HandleOutgoing
 }
