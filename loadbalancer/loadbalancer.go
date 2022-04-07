@@ -2,6 +2,8 @@ package loadbalancer
 
 import (
 	"errors"
+	"log"
+	"math/rand"
 	"os"
 	"time"
 
@@ -37,11 +39,38 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	return nil, errors.New("no backends found")
 }
 
+func Random(svc string) (*globals.BackendSrv, error) {
+	log.Println("Random used") // debug
+	backends, err := GetBackendSvcList(svc)
+	if err != nil {
+		log.Println("Random error", err.Error()) // debug
+		return nil, err
+	}
+
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+
+	ln := len(backends)
+	index := rand.Intn(ln)
+	for {
+		if backends[index].NoSched {
+			index = rand.Intn(ln)
+		} else {
+			break
+		}
+	}
+	return &backends[index], nil
+}
+
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	if defaultLBPolicy_g == "" {
 		defaultLBPolicy_g = os.Getenv("LBPolicy")
 	}
 	switch defaultLBPolicy_g {
+	case "Random":
+		return Random(svc)
+	case "RoundRobin":
+		return RoundRobin(svc)
 	case "LeastConn":
 		return LeastConn(svc)
 	case "RangeHash":
