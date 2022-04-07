@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/MSrvComm/MiCoProxy/globals"
+	"github.com/MSrvComm/MiCoProxy/internal/globals"
 )
 
 var defaultLBPolicy_g string
@@ -29,8 +29,6 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, Wt: 1, LastRTT: 0, WtAvgRTT: 0,
 				NoSched: false, RcvTime: time.Now(), Grp: true})
 		}
-		// call the hash distribution service here
-		hashDistribution(&backendSrvs, len(ips))
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
@@ -66,10 +64,6 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	switch defaultLBPolicy_g {
 	case "LeastConn":
 		return LeastConn(svc)
-	case "RangeHash":
-		return rangeHashGreedy(svc)
-	case "RangeHashRounds":
-		return rangeHashRounds(svc)
 	case "LeastTime":
 		return leasttime(svc)
 	case "P2CLeastTime":
