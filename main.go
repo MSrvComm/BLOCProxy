@@ -4,6 +4,8 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/MSrvComm/MiCoProxy/controllercomm"
+	"github.com/MSrvComm/MiCoProxy/internal/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/incoming"
 	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 	"github.com/MSrvComm/MiCoProxy/internal/outgoing"
@@ -12,7 +14,8 @@ import (
 )
 
 func main() {
-	inProxy := incoming.NewProxy("google.com")
+	globals.RedirectUrl_g = "http://localhost" + globals.CLIENTPORT
+	inProxy := incoming.NewProxy(globals.RedirectUrl_g)
 
 	send := make(chan *irequest.Request, 10)
 	outProxy := outgoing.NewRequestHandler(send)
@@ -28,8 +31,13 @@ func main() {
 		lb.Run()
 	}()
 
+	// start running the communication server
+	done := make(chan bool)
+	defer close(done)
+	go controllercomm.RunComm(done)
+
 	go func() {
-		log.Fatal(http.ListenAndServe(":8080", outMux))
+		log.Fatal(http.ListenAndServe(globals.PROXYINPORT, inMux))
 	}()
-	log.Fatal(http.ListenAndServe(":8081", inMux))
+	log.Fatal(http.ListenAndServe(globals.PROXOUTPORT, outMux))
 }

@@ -7,18 +7,18 @@ import (
 
 // BackendSrv stores information for internal decision making
 type BackendSrv struct {
-	RW       sync.RWMutex
-	Ip       string
-	Reqs     int64
-	Wt       float64
+	RW   sync.RWMutex
+	Ip   string
+	Reqs int64
+	// Wt       float64
 	RcvTime  time.Time
 	LastRTT  uint64
 	WtAvgRTT float64
-	NoSched  bool
-	Count    uint64
-	Start    uint64
-	End      uint64
-	Grp      bool
+	// NoSched  bool
+	// Count    uint64
+	// Start    uint64
+	// End      uint64
+	// Grp      bool
 }
 
 // Endpoints store information from the control plane

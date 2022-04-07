@@ -4,7 +4,7 @@ import (
 	"log"
 	"net/http"
 
-	irequest "github.com/MSrvComm/MiCoProxy/internal/request"
+	irequest "github.com/MSrvComm/MiCoProxy/internal/loadbalancer/request"
 )
 
 type RequestHandler struct {
@@ -17,6 +17,7 @@ func NewRequestHandler(send chan *irequest.Request) *RequestHandler {
 
 func (rh *RequestHandler) HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	log.Println("HandleOutGoing: Received new request") // debug
+
 	done := make(chan bool)
 	defer close(done)
 	rqs := irequest.NewRequest(w, r, done)
