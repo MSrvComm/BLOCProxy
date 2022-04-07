@@ -5,7 +5,7 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/MSrvComm/MiCoProxy/globals"
+	"github.com/MSrvComm/MiCoProxy/internal/globals"
 )
 
 func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
