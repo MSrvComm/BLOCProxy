@@ -52,26 +52,26 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 
 		// modulate number of requests for the backend by weight
 		// if we have been sending more requests than others, this is adjusted downwards and vice versa
-		rqs := float64(backends[it].Reqs+1) * backends[it].Wt
+		rqs := float64(backends[it].Reqs+1) * backends[it].WtAvgRTT
 		// lastRtt := backends[it].LastRTT
 
 		// if rqs != 0 && lastRtt > RTT_THRESHOLD*System_rtt_avg_g {
 		// 	backends[it].NoSched = true
 		// }
 
-		// backend can be scheduled to if there are no active requests on it
-		if backends[it].NoSched && rqs == 0 {
-			backends[it].NoSched = false
-		}
+		// // backend can be scheduled to if there are no active requests on it
+		// if backends[it].NoSched && rqs == 0 {
+		// 	backends[it].NoSched = false
+		// }
 
-		// don't bother with servers not in scheduling
-		if backends[it].NoSched {
-			it = (it + 1) % ln
-			if it == index {
-				break
-			}
-			continue
-		}
+		// // don't bother with servers not in scheduling
+		// if backends[it].NoSched {
+		// 	it = (it + 1) % ln
+		// 	if it == index {
+		// 		break
+		// 	}
+		// 	continue
+		// }
 
 		// predTime = float64(rqs+1)*rtt - ts
 		predTime = (rqs+1)*rtt - ts
@@ -90,30 +90,30 @@ func leasttime(svc string) (*globals.BackendSrv, error) {
 			break
 		}
 	}
-	// are we waiting too long for a response?
-	ts := float64(time.Since(backend2Return.RcvTime))
-	rtt := backend2Return.WtAvgRTT
-	rqs := backend2Return.Reqs
+	// // are we waiting too long for a response?
+	// ts := float64(time.Since(backend2Return.RcvTime))
+	// rtt := backend2Return.WtAvgRTT
+	// rqs := backend2Return.Reqs
 
-	// rqs == 0, ends up being a probe
-	// rqs != 0 is a backend overloaded
-	if rqs == 0 {
-		rqs = 1 // we don't want to compare `ts` against 0 in the next step
-		// if rtt != 0 && ts > RQS_THRESHOLD*(rtt) {
-		// backend2Return.NoSched = true
-		// }
-	}
-	if rtt != 0 && ts > RQS_THRESHOLD*(rtt*float64(rqs)) {
-		backend2Return.NoSched = true
-	}
+	// // rqs == 0, ends up being a probe
+	// // rqs != 0 is a backend overloaded
+	// if rqs == 0 {
+	// 	rqs = 1 // we don't want to compare `ts` against 0 in the next step
+	// 	// if rtt != 0 && ts > RQS_THRESHOLD*(rtt) {
+	// 	// backend2Return.NoSched = true
+	// 	// }
+	// }
+	// if rtt != 0 && ts > RQS_THRESHOLD*(rtt*float64(rqs)) {
+	// 	backend2Return.NoSched = true
+	// }
 
-	// is response becoming too slow?
-	lastRtt := backend2Return.LastRTT
+	// // is response becoming too slow?
+	// lastRtt := backend2Return.LastRTT
 
-	// if rqs != 0 && lastRtt > RTT_THRESHOLD*System_rtt_avg_g {
-	if rqs != 0 && float64(lastRtt) > RTT_THRESHOLD*rtt {
-		backend2Return.NoSched = true
-	}
+	// // if rqs != 0 && lastRtt > RTT_THRESHOLD*System_rtt_avg_g {
+	// if rqs != 0 && float64(lastRtt) > RTT_THRESHOLD*rtt {
+	// 	backend2Return.NoSched = true
+	// }
 
 	return backend2Return, nil
 }

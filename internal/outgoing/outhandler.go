@@ -4,14 +4,14 @@ import (
 	"log"
 	"net/http"
 
-	irequest "github.com/MSrvComm/MiCoProxy/internal/loadbalancer/request"
+	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 )
 
 type RequestHandler struct {
-	send chan *irequest.Request
+	send chan *loadbalancer.Request
 }
 
-func NewRequestHandler(send chan *irequest.Request) *RequestHandler {
+func NewRequestHandler(send chan *loadbalancer.Request) *RequestHandler {
 	return &RequestHandler{send}
 }
 
@@ -20,7 +20,7 @@ func (rh *RequestHandler) HandleOutgoing(w http.ResponseWriter, r *http.Request)
 
 	done := make(chan bool)
 	defer close(done)
-	rqs := irequest.NewRequest(w, r, done)
+	rqs := loadbalancer.NewRequest(w, r, done)
 	rh.send <- rqs
 	<-done // block here
 }

@@ -21,7 +21,11 @@ func NewRequest(w http.ResponseWriter, r *http.Request, d chan bool) *Request {
 	return &Request{w: w, r: r, d: d}
 }
 
-func (rq *Request) MakeRequest(svc, port string, backend *globals.BackendSrv) {
+func (rq *Request) makeRequest(svc, port string, backend *globals.BackendSrv) {
+	// release the handler function HandleOutgoing
+	// no matter what!
+	defer func() { rq.d <- true }()
+
 	r := rq.r
 	w := rq.w
 
@@ -51,9 +55,20 @@ func (rq *Request) MakeRequest(svc, port string, backend *globals.BackendSrv) {
 	}
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
-	rq.d <- true // release the handler function HandleOutgoing
+	// rq.d <- true // release the handler function HandleOutgoing here explicitly
+	// backend.RW.Lock()
+	// defer backend.RW.Unlock()
+	// backend.RcvTime = start
+	// backend.LastRTT = uint64(elapsed)
+
+	// we want to avoid paying the locking cost
+	// for stats update in the call
+	go rq.statsUpdate(backend, start, uint64(elapsed))
+} // the request released here
+
+func (rq *Request) statsUpdate(backend *globals.BackendSrv, start time.Time, elapsed uint64) {
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
 	backend.RcvTime = start
-	backend.LastRTT = uint64(elapsed)
+	backend.LastRTT = elapsed
 }

@@ -10,12 +10,13 @@ import (
 )
 
 type LBThread struct {
-	queue *Queue
-	rcv   chan *Request
+	queue    *Queue
+	rcv      chan *Request
+	interval time.Duration
 }
 
-func NewLBThread(rcv chan *Request) *LBThread {
-	return &LBThread{queue: NewQueue(), rcv: rcv}
+func NewLBThread(rcv chan *Request, interval time.Duration) *LBThread {
+	return &LBThread{queue: NewQueue(), rcv: rcv, interval: interval}
 }
 
 func (lb *LBThread) sendRequests() {
@@ -38,15 +39,24 @@ func (lb *LBThread) sendRequests() {
 				addService(svc)
 			}
 
-			backend, err = NextEndpoint(svc)
+			backend, _ = NextEndpoint(svc)
 		}
 
-		go rq.MakeRequest(svc, port, backend)
+		if rq != nil {
+			if backend != nil {
+				go rq.makeRequest(svc, port, backend)
+			} else {
+				log.Println("LB sendRequests: Nil backend")
+				rq.d <- true // unblock the request
+			}
+		} else {
+			log.Println("LB sendRequests: Nil Request")
+		}
 	}
 }
 
 func (lb *LBThread) Run() {
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(lb.interval)
 	for {
 		select {
 		case r := <-lb.rcv:
@@ -77,4 +87,5 @@ func addService(s string) {
 		}
 	}
 	globals.SvcList_g = append(globals.SvcList_g, s)
+	time.Sleep(time.Millisecond * 50)
 }

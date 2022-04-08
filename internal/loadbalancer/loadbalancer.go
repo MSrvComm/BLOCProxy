@@ -26,8 +26,8 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
 		for _, ip := range ips {
-			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, Wt: 1, LastRTT: 0, WtAvgRTT: 0,
-				NoSched: false, RcvTime: time.Now(), Grp: true})
+			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, LastRTT: 0, WtAvgRTT: 0,
+				RcvTime: time.Now()})
 		}
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
