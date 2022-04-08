@@ -47,7 +47,7 @@ func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
 		}
 	}
 
-	rtt1 := backends[index1].WtAvgRTT
+	rtt1 := backends[index1].Wt
 	ts1 := float64(time.Since(backends[index1].RcvTime))
 	rqs1 := backends[index1].Reqs
 	predTime1 := float64(rqs1+1)*rtt1 - ts1
@@ -55,7 +55,7 @@ func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
 		predTime1 = 0
 	}
 
-	rtt2 := backends[index2].WtAvgRTT
+	rtt2 := backends[index2].Wt
 	ts2 := float64(time.Since(backends[index2].RcvTime))
 	rqs2 := backends[index2].Reqs
 	predTime2 := float64(rqs2+1)*rtt2 - ts2
