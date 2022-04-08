@@ -59,13 +59,33 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 	return srv2, nil
 }
 
+func Random(svc string) (*globals.BackendSrv, error) {
+	log.Println("Random used") // debug
+	backends, err := GetBackendSvcList(svc)
+	if err != nil {
+		log.Println("Random error", err.Error()) // debug
+		return nil, err
+	}
+
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+
+	ln := len(backends)
+	index := rand.Intn(ln)
+	return &backends[index], nil
+}
+
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	if defaultLBPolicy_g == "" {
 		defaultLBPolicy_g = os.Getenv("LBPolicy")
 	}
 	switch defaultLBPolicy_g {
+	case "Random":
+		return Random(svc)
 	case "LeastConn":
 		return LeastConn(svc)
+	case "MLeastConn":
+		return MLeastConn(svc)
 	case "RangeHash":
 		return rangeHashGreedy(svc)
 	case "RangeHashRounds":
