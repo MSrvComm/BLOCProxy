@@ -120,7 +120,8 @@ func handleOutgoing(w http.ResponseWriter, r *http.Request) {
 	// http2.ConfigureTransport(http.DefaultTransport.(*http.Transport))
 
 	// get backends from redis
-	backend, err := loadbalancer.Global(svc)
+	// backend, err := loadbalancer.Global(svc)
+	backend, err := loadbalancer.P2CGlobal(svc)
 	log.Println("handleOutgoing", backend) // debug
 	// backend, err := loadbalancer.NextEndpoint(svc)
 	// backend, err := NextEndpoint(svc)

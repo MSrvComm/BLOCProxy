@@ -15,8 +15,8 @@ The `latest` version of the MiCoProxy docker now stands abandoned. The algorithm
 ## Building the Proxy
 
 ```bash
-sudo docker build -t ratnadeepb/micoproxy:globallb .
-sudo docker push ratnadeepb/micoproxy:globallb
+sudo docker build -t ratnadeepb/micoproxy:p2cgloballb .
+sudo docker push ratnadeepb/micoproxy:p2cgloballb
 ```
 
 ## Running the MiCo tool

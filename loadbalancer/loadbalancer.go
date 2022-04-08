@@ -198,6 +198,38 @@ func Global(svc string) (string, error) {
 	return backend2Return, nil
 }
 
+func P2CGlobal(svc string) (string, error) {
+	backends, err := redisops.Retrieve(svc)
+	if err != nil {
+		return "", err
+	}
+
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+
+	index1 := rand.Intn(len(backends))
+	index2 := rand.Intn(len(backends))
+
+	i := 0
+	var backend1, backend2 string
+	var reqs1, reqs2 int64
+	for backend, reqs := range backends {
+		if i == index1 {
+			backend1 = backend
+			reqs1 = reqs
+		}
+		if i == index2 {
+			backend2 = backend
+			reqs2 = reqs
+		}
+		i++
+	}
+	if reqs1 < reqs2 {
+		return backend1, nil
+	}
+	return backend2, nil
+}
+
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	switch globals.DefaultLBPolicy_g {
 	case "RoundRobin":
