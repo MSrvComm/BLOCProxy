@@ -40,24 +40,24 @@ func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
 		// backend can be scheduled to if there are no active requests on it
 		if backends[index2].NoSched && backends[index2].Reqs == 0 {
 			backends[index2].NoSched = false
-		} else if index1 == index2 || backends[index2].NoSched {
+		} else if backends[index2].NoSched {
 			index2 = rand.Intn(ln)
 		} else {
 			break
 		}
 	}
 
-	rtt1 := backends[index1].Wt
+	rtt1 := backends[index1].WtAvgRTT
 	ts1 := float64(time.Since(backends[index1].RcvTime))
-	rqs1 := backends[index1].Reqs
+	rqs1 := backends[index1].Wt
 	predTime1 := float64(rqs1+1)*rtt1 - ts1
 	if predTime1 < 0 {
 		predTime1 = 0
 	}
 
-	rtt2 := backends[index2].Wt
+	rtt2 := backends[index2].WtAvgRTT
 	ts2 := float64(time.Since(backends[index2].RcvTime))
-	rqs2 := backends[index2].Reqs
+	rqs2 := backends[index2].Wt
 	predTime2 := float64(rqs2+1)*rtt2 - ts2
 	if predTime2 < 0 {
 		predTime2 = 0
