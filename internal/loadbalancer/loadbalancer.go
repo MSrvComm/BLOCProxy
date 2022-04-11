@@ -15,13 +15,11 @@ var defaultLBPolicy_g string
 const BitsPerWord = 32 << (^uint(0) >> 63)
 const MaxInt = 1<<(BitsPerWord-1) - 1
 
-func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
+func PopulateSvcList(svc string) bool {
 	mapExists := globals.Svc2BackendSrvMap_g.Get(svc) // send a reference to the original instead of making a copy
 	if len(mapExists) > 0 {
-		return mapExists, nil
+		return true
 	}
-	// else if
-	// make entries into backendSrvs here
 	var backendSrvs []globals.BackendSrv
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
@@ -33,21 +31,28 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 					WtAvgRTT: 0,
 					// credit for all backends is set to 1 at the start
 					// it's up to the backend to update it
-					Credits: 1,
+					Credits: 0,
 					RcvTime: time.Now(),
 				})
 		}
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
+		return true
+	}
+	return false
+}
+
+func GetSvcList(svc string) ([]globals.BackendSrv, error) {
+	found := PopulateSvcList(svc)
+	if found {
 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
 	}
-	// else
 	return nil, errors.New("no backends found")
 }
 
 func Random(svc string) (*globals.BackendSrv, error) {
 	log.Println("Random used") // debug
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		log.Println("Random error", err.Error()) // debug
 		return nil, err

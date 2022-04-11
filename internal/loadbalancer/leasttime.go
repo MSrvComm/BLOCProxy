@@ -16,7 +16,7 @@ const (
 func leasttime(svc string) (*globals.BackendSrv, error) {
 	log.Println("Least Time used")
 
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		log.Println("LeastTime:", err.Error())
 		return nil, err

@@ -10,7 +10,7 @@ import (
 
 func LeastConn(svc string) (*globals.BackendSrv, error) {
 	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -30,7 +30,7 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 
 func MLeastConn(svc string) (*globals.BackendSrv, error) {
 	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
 	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}

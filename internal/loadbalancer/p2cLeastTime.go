@@ -11,7 +11,7 @@ import (
 func p2cLeastTime(svc string) (*globals.BackendSrv, error) {
 	log.Println("P2C Least Time used")
 
-	backends, err := GetBackendSvcList(svc)
+	backends, err := GetSvcList(svc)
 	if err != nil {
 		log.Println("LeastTime:", err.Error())
 		return nil, err
