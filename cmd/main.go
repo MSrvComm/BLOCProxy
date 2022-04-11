@@ -40,13 +40,6 @@ func main() {
 
 	// start the proxy services
 	go func() {
-		// inServer := &http.Server{
-		// 	Addr:      globals.PROXYINPORT,
-		// 	ConnState: proxy.OnStateChange,
-		// 	Handler:   inMux,
-		// }
-		// log.Println(inServer) // debug
-		// log.Fatal(inServer.ListenAndServe())
 		log.Fatal(http.ListenAndServe(globals.PROXYINPORT, inMux))
 	}()
 	log.Fatal(http.ListenAndServe(globals.PROXOUTPORT, outMux))
