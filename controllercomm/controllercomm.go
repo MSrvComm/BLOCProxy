@@ -51,15 +51,13 @@ func getAllEndpoints() {
 }
 
 func RunComm(done chan bool) {
-	go func() {
-		ticker := time.NewTicker(time.Microsecond * 10)
-		for {
-			select {
-			case <-ticker.C:
-				getAllEndpoints()
-			case <-done:
-				return
-			}
+	ticker := time.NewTicker(time.Microsecond * 10)
+	for {
+		select {
+		case <-ticker.C:
+			getAllEndpoints()
+		case <-done:
+			return
 		}
-	}()
+	}
 }

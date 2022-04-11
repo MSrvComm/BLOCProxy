@@ -26,37 +26,23 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
 		for _, ip := range ips {
-			backendSrvs = append(backendSrvs, globals.BackendSrv{Ip: ip, Reqs: 0, Wt: 1, LastRTT: 0, WtAvgRTT: 0,
-				NoSched: false, RcvTime: time.Now(), Grp: true})
+			backendSrvs = append(backendSrvs,
+				globals.BackendSrv{Ip: ip,
+					Reqs:     0,
+					LastRTT:  0,
+					WtAvgRTT: 0,
+					// credit for all backends is set to 1 at the start
+					// it's up to the backend to update it
+					Credits: 1,
+					RcvTime: time.Now(),
+				})
 		}
-		// call the hash distribution service here
-		hashDistribution(&backendSrvs, len(ips))
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
 	}
 	// else
 	return nil, errors.New("no backends found")
-}
-
-func LeastConn(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
-	if err != nil {
-		return nil, err
-	}
-
-	// P2C Least Conn
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	srv1 := &backends[rand.Intn(len(backends))]
-	srv2 := &backends[rand.Intn(len(backends))]
-
-	// var ip string
-	if srv1.Reqs < srv2.Reqs {
-		return srv1, nil
-	}
-	return srv2, nil
 }
 
 func Random(svc string) (*globals.BackendSrv, error) {
@@ -86,10 +72,8 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 		return LeastConn(svc)
 	case "MLeastConn":
 		return MLeastConn(svc)
-	case "RangeHash":
-		return rangeHashGreedy(svc)
-	case "RangeHashRounds":
-		return rangeHashRounds(svc)
+	case "MLeastConnFull":
+		return MLeastConnFull(svc)
 	case "LeastTime":
 		return leasttime(svc)
 	case "P2CLeastTime":

@@ -25,8 +25,8 @@ env:
 ## Building the Proxy
 
 ```bash
-sudo docker build -t ratnadeepb/micoproxy:latest .
-sudo docker push ratnadeepb/micoproxy:latest
+sudo docker build -t ratnadeepb/micoproxy:credits .
+sudo docker push ratnadeepb/micoproxy:credits
 ```
 
 ## Running the MiCo tool

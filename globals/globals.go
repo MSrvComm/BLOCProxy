@@ -10,15 +10,35 @@ type BackendSrv struct {
 	RW       sync.RWMutex
 	Ip       string
 	Reqs     int64
-	Wt       float64
 	RcvTime  time.Time
 	LastRTT  uint64
 	WtAvgRTT float64
-	NoSched  bool
-	Count    uint64
-	Start    uint64
-	End      uint64
-	Grp      bool
+	Credits  uint64
+	// NoSched  bool
+}
+
+func (backend *BackendSrv) Incr() {
+	backend.RW.Lock()
+	defer backend.RW.Unlock()
+	// backend.Credits++
+	backend.Reqs++
+}
+
+func (backend *BackendSrv) Decr() {
+	backend.RW.Lock()
+	defer backend.RW.Unlock()
+	// we use up a credit whenever a new request is sent to that backend
+	backend.Credits--
+	backend.Reqs--
+}
+
+func (backend *BackendSrv) Update(start time.Time, credits uint64, elapsed uint64) {
+	backend.RW.Lock()
+	defer backend.RW.Unlock()
+	backend.RcvTime = start
+	backend.LastRTT = elapsed
+	backend.WtAvgRTT = backend.WtAvgRTT*0.5 + 0.5*float64(elapsed)
+	backend.Credits = credits
 }
 
 // Endpoints store information from the control plane
@@ -69,38 +89,37 @@ func (bm *backendSrvMap) Put(svc string, backends []BackendSrv) {
 	bm.mp[svc] = backends
 }
 
-func (bm *backendSrvMap) Incr(svc, ip string) {
-	bm.mu.Lock()
-	defer bm.mu.Unlock()
+// func (bm *backendSrvMap) Incr(svc, ip string) {
+// 	bm.mu.Lock()
+// 	defer bm.mu.Unlock()
 
-	for ind := range bm.mp[svc] {
-		if bm.mp[svc][ind].Ip == ip {
-			bm.mp[svc][ind].Reqs++
-		}
-	}
-}
+// 	for ind := range bm.mp[svc] {
+// 		if bm.mp[svc][ind].Ip == ip {
+// 			bm.mp[svc][ind].Reqs++
+// 		}
+// 	}
+// }
 
-func (bm *backendSrvMap) Decr(svc, ip string) {
-	bm.mu.Lock()
-	defer bm.mu.Unlock()
-	for ind := range bm.mp[svc] {
-		if bm.mp[svc][ind].Ip == ip {
-			bm.mp[svc][ind].Reqs--
-		}
-	}
-}
+// func (bm *backendSrvMap) Decr(svc, ip string) {
+// 	bm.mu.Lock()
+// 	defer bm.mu.Unlock()
+// 	for ind := range bm.mp[svc] {
+// 		if bm.mp[svc][ind].Ip == ip {
+// 			bm.mp[svc][ind].Reqs--
+// 		}
+// 	}
+// }
 
 var (
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services
 	SvcList_g           = make([]string, 0)  // knows all service names
-	// Svc2BackendSrvMap_g = make(map[string][]BackendSrv) // holds all backends for services
-	// Endpoints_g         = make(map[string][]string) // all endpoints for all services
 )
 
 const (
-	CLIENTPORT  = ":5000"
-	PROXYINPORT = ":62081" // which port will the reverse proxy use for making outgoing request
-	PROXOUTPORT = ":62082" // which port the reverse proxy listens on
+	CLIENTPORT     = ":5000"
+	PROXYINPORT    = ":62081"    // which port will the reverse proxy use for making outgoing request
+	PROXOUTPORT    = ":62082"    // which port the reverse proxy listens on
+	RESET_INTERVAL = time.Second // interval after which credit info of backend expires
 )
