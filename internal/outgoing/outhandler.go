@@ -42,27 +42,6 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		addService(svc)
 	}
 
-	// // first attempt
-	// resp, err := callService(svc, port, w, r)
-
-	// // retry 5 times if there are no errors
-	// if err != nil {
-	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	return
-	// }
-	// if resp.StatusCode == 103 {
-	// 	for i := 0; i < 1; i++ {
-	// 		resp, err = callService(svc, port, w, r)
-	// 		if err != nil {
-	// 			w.WriteHeader(http.StatusInternalServerError)
-	// 			return
-	// 		}
-	// 		if resp.StatusCode != 103 {
-	// 			break
-	// 		}
-	// 	}
-	// }
-
 	backend, err := loadbalancer.NextEndpoint(svc)
 	if err != nil {
 		log.Println("Error fetching backend:", err)
@@ -90,10 +69,9 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// code := resp.StatusCode - 200
-	// if code < 0 || code > 99 {
 	if resp.StatusCode != 200 {
 		log.Println("Request was dropped") // debug
+		backend.Backoff()                  // backoff from this backend for a while
 		w.WriteHeader(resp.StatusCode)
 		fmt.Fprintf(w, "Bad reply from server")
 	}
@@ -108,38 +86,3 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 	go backend.Update(start, uint64(credits), uint64(elapsed))
 }
-
-// func callService(svc, port string, w http.ResponseWriter, r *http.Request) (*http.Response, error) {
-// 	log.Println("callService")
-// 	backend, err := loadbalancer.NextEndpoint(svc)
-// 	if err != nil {
-// 		log.Println("Error fetching backend:", err)
-// 		w.WriteHeader(http.StatusInternalServerError)
-// 		fmt.Fprint(w, err.Error())
-// 		return nil, errors.New("invalid backend")
-// 	}
-
-// 	r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
-// 	backend.Incr()                                  // a new request
-
-// 	client := &http.Client{Timeout: time.Second * 10}
-// 	start := time.Now()
-// 	resp, err := client.Do(r)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-
-// 	var elapsed uint64
-// 	if resp.StatusCode != 103 {
-// 		// we always receive a new credit value from the backend
-// 		// it can be a 1 or a 0
-// 		credits, _ := strconv.Atoi(resp.Header.Get("CREDITS"))
-// 		elapsed = uint64(time.Since(start).Nanoseconds())
-// 		// we update the backend in a go routine
-// 		// freeing up the handler function to return
-// 		// separating the cost of the update from the cost of the service
-// 		go backend.Update(start, elapsed, uint64(credits))
-// 	}
-// 	backend.Decr() // close the request
-// 	return resp, nil
-// }

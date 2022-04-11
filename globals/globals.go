@@ -14,13 +14,18 @@ type BackendSrv struct {
 	LastRTT  uint64
 	WtAvgRTT float64
 	Credits  uint64
-	// NoSched  bool
+}
+
+func (backend *BackendSrv) Backoff() {
+	backend.RW.Lock()
+	defer backend.RW.Unlock()
+	backend.RcvTime = time.Now() // now time since > globals.RESET_INTERVAL; refer to MLeastConn algo
+	backend.Credits = 0
 }
 
 func (backend *BackendSrv) Incr() {
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
-	// backend.Credits++
 	backend.Reqs++
 }
 
@@ -88,27 +93,6 @@ func (bm *backendSrvMap) Put(svc string, backends []BackendSrv) {
 	defer bm.mu.Unlock()
 	bm.mp[svc] = backends
 }
-
-// func (bm *backendSrvMap) Incr(svc, ip string) {
-// 	bm.mu.Lock()
-// 	defer bm.mu.Unlock()
-
-// 	for ind := range bm.mp[svc] {
-// 		if bm.mp[svc][ind].Ip == ip {
-// 			bm.mp[svc][ind].Reqs++
-// 		}
-// 	}
-// }
-
-// func (bm *backendSrvMap) Decr(svc, ip string) {
-// 	bm.mu.Lock()
-// 	defer bm.mu.Unlock()
-// 	for ind := range bm.mp[svc] {
-// 		if bm.mp[svc][ind].Ip == ip {
-// 			bm.mp[svc][ind].Reqs--
-// 		}
-// 	}
-// }
 
 var (
 	RedirectUrl_g       string
