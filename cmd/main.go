@@ -10,7 +10,6 @@ import (
 	"github.com/MSrvComm/MiCoProxy/controllercomm"
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/incoming"
-	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 	"github.com/MSrvComm/MiCoProxy/internal/outgoing"
 	"github.com/gorilla/mux"
 )
@@ -24,14 +23,6 @@ func main() {
 
 	// get capacity
 	incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
-	// get upstream service(s)
-	globals.Upstream_svc_g = os.Getenv("UPSTREAM")
-	// get list of upstream of pods
-	if globals.Upstream_svc_g != "" {
-		if !loadbalancer.PopulateSvcList(globals.Upstream_svc_g) {
-			log.Fatal("No pod for upstream found")
-		}
-	}
 
 	// incoming request handling
 	proxy := incoming.NewProxy(globals.RedirectUrl_g)

@@ -58,10 +58,6 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	resp, err := client.Do(r)
 
 	backend.Decr() // close the request
-	// we always receive a new credit value from the backend
-	// it can be a 1 or a 0
-	credits, _ := strconv.Atoi(resp.Header.Get("CREDITS"))
-	elapsed := time.Since(start).Nanoseconds()
 
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -75,6 +71,11 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(resp.StatusCode)
 		fmt.Fprintf(w, "Bad reply from server")
 	}
+
+	// we always receive a new credit value from the backend
+	// it can be a 1 or a 0
+	credits, _ := strconv.Atoi(resp.Header.Get("CREDITS"))
+	elapsed := time.Since(start).Nanoseconds()
 
 	for key, values := range resp.Header {
 		for _, value := range values {

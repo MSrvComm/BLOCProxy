@@ -7,7 +7,11 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"sync/atomic"
+
+	"github.com/MSrvComm/MiCoProxy/globals"
+	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 )
 
 var Capacity_g = 10.0
@@ -40,14 +44,17 @@ func NewProxy(target string) *Proxy {
 	return &Proxy{target: url, proxy: httputil.NewSingleHostReverseProxy(url), activeReqs: 0}
 }
 
-// func (p *Proxy) OnStateChange(conn net.Conn, state http.ConnState) {
-// 	switch state {
-// 	case http.StateNew:
-// 		p.add(1)
-// 	case http.StateHijacked, http.StateClosed:
-// 		p.add(-1)
-// 	}
-// }
+func (p *Proxy) getUpstreamSvc() {
+	// get upstream service(s)
+	globals.Upstream_svc_g = os.Getenv("UPSTREAM")
+	// get list of upstream of pods
+	if globals.Upstream_svc_g != "" {
+		if !loadbalancer.PopulateSvcList(globals.Upstream_svc_g) {
+			log.Println("No pod for upstream found")
+		}
+	}
+	globals.Upstream_svc_set_g = true
+}
 
 func (p *Proxy) add(n int64) {
 	atomic.AddInt64(&p.activeReqs, n)
@@ -59,6 +66,11 @@ func (p *Proxy) count() int64 {
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Println("incoming")
+
+	if !globals.Upstream_svc_set_g {
+		p.getUpstreamSvc()
+	}
+
 	// if there are too many requests then ask the client to retry
 	if p.count()+1 > int64(Capacity_g) {
 		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")

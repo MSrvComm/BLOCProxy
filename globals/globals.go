@@ -100,6 +100,7 @@ var (
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services
 	SvcList_g           = make([]string, 0)  // knows all service names
 	Upstream_svc_g      string
+	Upstream_svc_set_g  = false
 )
 
 const (
