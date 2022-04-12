@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/MSrvComm/MiCoProxy/globals"
@@ -15,39 +16,70 @@ var defaultLBPolicy_g string
 const BitsPerWord = 32 << (^uint(0) >> 63)
 const MaxInt = 1<<(BitsPerWord-1) - 1
 
-func PopulateSvcList(svc string) bool {
+// func PopulateSvcList(svc string) bool {
+// 	mapExists := globals.Svc2BackendSrvMap_g.Get(svc) // send a reference to the original instead of making a copy
+// 	if len(mapExists) > 0 {
+// 		return true
+// 	}
+
+// 	var backendSrvs []globals.BackendSrv
+// 	ips := globals.Endpoints_g.Get(svc)
+// 	if len(ips) > 0 {
+// 		for _, ip := range ips {
+// 			backendSrvs = append(backendSrvs,
+// 				globals.BackendSrv{
+// 					RW:             &sync.RWMutex{},
+// 					Ip:             ip,
+// 					Reqs:           0,
+// 					LastRTT:        0,
+// 					WtAvgRTT:       0,
+// 					CreditsBackend: 1,
+// 					RcvTime:        time.Now(),
+// 				})
+// 		}
+// 		// add backend to the backend maps
+// 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
+// 		time.Sleep(time.Nanosecond * 100)
+// 		return true
+// 	}
+// 	return false
+// }
+
+// func GetSvcList(svc string) ([]globals.BackendSrv, error) {
+// 	found := PopulateSvcList(svc)
+// 	if found {
+// 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
+// 	}
+// 	return nil, errors.New("no backends found")
+// }
+
+func GetSvcList(svc string) ([]globals.BackendSrv, error) {
 	mapExists := globals.Svc2BackendSrvMap_g.Get(svc) // send a reference to the original instead of making a copy
 	if len(mapExists) > 0 {
-		return true
+		return mapExists, nil
 	}
+	// else if
+	// make entries into backendSrvs here
 	var backendSrvs []globals.BackendSrv
 	ips := globals.Endpoints_g.Get(svc)
 	if len(ips) > 0 {
 		for _, ip := range ips {
 			backendSrvs = append(backendSrvs,
-				globals.BackendSrv{Ip: ip,
-					Reqs:     0,
-					LastRTT:  0,
-					WtAvgRTT: 0,
-					// credit for all backends is set to 1 at the start
-					// it's up to the backend to update it
-					CreditsBackend: 0,
-					RcvTime: time.Now(),
+				globals.BackendSrv{
+					RW:             &sync.RWMutex{},
+					Ip:             ip,
+					Reqs:           0,
+					LastRTT:        0,
+					WtAvgRTT:       0,
+					CreditsBackend: 1,
+					RcvTime:        time.Now(),
 				})
 		}
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
-		time.Sleep(time.Nanosecond * 100)
-		return true
-	}
-	return false
-}
-
-func GetSvcList(svc string) ([]globals.BackendSrv, error) {
-	found := PopulateSvcList(svc)
-	if found {
 		return globals.Svc2BackendSrvMap_g.Get(svc), nil
 	}
+	// else
 	return nil, errors.New("no backends found")
 }
 

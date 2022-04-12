@@ -2,15 +2,20 @@ package incoming
 
 import (
 	"log"
-	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync"
 	"sync/atomic"
+
+	"github.com/MSrvComm/MiCoProxy/globals"
 )
 
-var Capacity_g float64
+var (
+	Capacity_g float64
+	InProxy    *Proxy
+)
 
 type pTransport struct{}
 
@@ -50,44 +55,60 @@ func (p *Proxy) add(n int64) {
 	atomic.AddInt64(&p.activeReqs, n)
 }
 
-func (p *Proxy) count() int64 {
-	return atomic.LoadInt64(&p.activeReqs)
-}
+// func (p *Proxy) count() int64 {
+// 	return atomic.LoadInt64(&p.activeReqs)
+// }
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Println("incoming")
 
-	// if there are too many requests then ask the client to retry
-	if p.count()+1 > int64(Capacity_g) {
-		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
-		log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	// // if there are too many requests then ask the client to retry
+	// if p.count()+1 > int64(Capacity_g) {
+	// 	// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
+	// 	log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
+	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	return
+	// }
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		log.Println(err)
 	}
 	p.add(1)
-	log.Println("accepted")
+	// log.Println("accepted")
 	w.Header().Set("X-Forwarded-For", s)
 
 	p.proxy.Transport = &pTransport{}
 	p.proxy.ServeHTTP(w, r)
 
-	// we can send a 0 or a 1 credit back
-	// if the backend receives 0, they can't send another request for a second
-	// the probability of a credit being sent is based on how loaded the system is right now
-	// capacity_g hard codes the capacity of the system for the moment
-	var credits string
-	if rand.Float64() < float64(p.count())/Capacity_g {
-		credits = "0"
-	} else {
-		credits = "1"
+	if globals.Upstream_svc_g != "" {
+		checkAndAddIp(s) // check if service exists in global service map; add it if not
+		log.Println("Sending to creditUpdate")
+		p.creditUpdate <- true // let the credit system know
 	}
 
-	w.Header().Set("CREDITS", credits)
-	log.Println("Active Requests:", p.activeReqs, ", credits:", credits)
+	// // we can send a 0 or a 1 credit back
+	// // if the backend receives 0, they can't send another request for a second
+	// // the probability of a credit being sent is based on how loaded the system is right now
+	// // capacity_g hard codes the capacity of the system for the moment
+	// var credits string
+	// if rand.Float64() < float64(p.count())/Capacity_g {
+	// 	credits = "0"
+	// } else {
+	// 	credits = "1"
+	// }
+
+	// w.Header().Set("CREDITS", credits)
+	// log.Println("Active Requests:", p.activeReqs, ", credits:", credits)
 	p.add(-1)
-	p.creditUpdate <- true // let the credit system know
+}
+
+func checkAndAddIp(hostIp string) {
+	log.Println("checkAndAddIp: hostIP", hostIp) // debug
+	if globals.Svc2BackendSrvMap_g.SearchByHostIP(hostIp) != nil {
+		return
+	}
+	globals.Svc2BackendSrvMap_g.AddHost(globals.Upstream_svc_g, &globals.BackendSrv{
+		RW: &sync.RWMutex{},
+		Ip: hostIp,
+	})
 }

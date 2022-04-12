@@ -11,7 +11,6 @@ import (
 	"github.com/MSrvComm/MiCoProxy/credits"
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/incoming"
-	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 	"github.com/MSrvComm/MiCoProxy/internal/outgoing"
 	"github.com/gorilla/mux"
 )
@@ -27,19 +26,15 @@ func main() {
 	incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
 
 	// get downstream service(s)
-	globals.Downstream_svc_g = os.Getenv("DOWNSTREAM")
-	// get list of downstream of pods
-	if globals.Downstream_svc_g != "" {
-		if !loadbalancer.PopulateSvcList(globals.Downstream_svc_g) {
-			log.Println("No pod for downstream found")
-		}
-	}
+	globals.Upstream_svc_g = os.Getenv("UPSTREAM")
+	// // get list of downstream of pods
+	// if globals.Downstream_svc_g != "" {
+	// 	if !loadbalancer.PopulateSvcList(globals.Downstream_svc_g) {
+	// 		log.Println("No pod for downstream found")
+	// 	}
+	// }
 
-	// incoming request handling
 	creditUpdate := make(chan bool, 10) // used to update the credit system that another response is sent
-	globals.InProxy = incoming.NewProxy(globals.RedirectUrl_g, creditUpdate)
-	inMux := mux.NewRouter()
-	inMux.PathPrefix("/").HandlerFunc(globals.InProxy.Handle)
 
 	// outgoing request handling
 	outMux := mux.NewRouter()
@@ -50,8 +45,18 @@ func main() {
 	defer close(done)
 	go controllercomm.RunComm(done)
 
-	// start the credit system
+	// incoming request handling
+	incoming.InProxy = incoming.NewProxy(globals.RedirectUrl_g, creditUpdate)
+	inMux := mux.NewRouter()
+
+	// set up the credit system
 	cp := credits.NewCreditProxy(creditUpdate)
+	// inMux.PathPrefix("/credits").HandlerFunc(cp.Listen) // listen for incoming credits
+	// routes are matched in the order they are added
+	inMux.HandleFunc("/credits", cp.Listen) // listen for incoming credits
+	inMux.PathPrefix("/").HandlerFunc(incoming.InProxy.Handle)
+
+	// start the credit system
 	go func() {
 		cp.Run()
 	}()

@@ -29,7 +29,7 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 }
 
 func MLeastConn(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
+	log.Println("Modified Least Connection used") // debug
 	backends, err := GetSvcList(svc)
 	if err != nil {
 		return nil, err
@@ -40,13 +40,11 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 	rand.Seed(seed)
 	ln := len(backends)
 
-	// we select two servers if they have a credit
-	// or it has been more than a second since the last response
+	// we select two servers only if they have credit left
 	index1 := rand.Intn(ln)
 
 	for {
-		ts := time.Since(backends[index1].RcvTime)
-		if backends[index1].CreditsBackend > 0 || ts > globals.RESET_INTERVAL {
+		if backends[index1].CreditsBackend > 0 {
 			break
 		}
 		index1 = rand.Intn(ln)
@@ -55,8 +53,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 	index2 := rand.Intn(ln)
 
 	for {
-		ts := time.Since(backends[index2].RcvTime)
-		if backends[index2].CreditsBackend > 0 || ts > globals.RESET_INTERVAL {
+		if backends[index2].CreditsBackend > 0 {
 			break
 		}
 		index2 = rand.Intn(ln)
@@ -73,25 +70,16 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 		backend2Return = srv2
 	}
 
-	// if credits have expired then we want to send a single probe
-	ts := time.Since(backend2Return.RcvTime)
-	if backend2Return.CreditsBackend <= 0 && ts > globals.RESET_INTERVAL {
-		backend2Return.RcvTime = time.Now()
-	}
-
 	return backend2Return, nil
 }
 
 func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
+	log.Println("Modified Full Least Connection used") // debug
 	backends, err := GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
 
-	// P2C Least Conn
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
 	ln := len(backends)
 
 	// we select two servers if they have a credit
@@ -101,12 +89,17 @@ func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
 	var backend2Return *globals.BackendSrv
 	var minReqs int64
 
-	for i := index + 1; i != index; i = (i + 1) % ln {
-		ts := time.Since(backends[i].RcvTime)
-		if backends[i].CreditsBackend <= 0 && ts < globals.RESET_INTERVAL {
+	log.Println("Backends length in MFullLC:", ln) // debug
+
+	// i := (index + 1) % ln
+
+	// for ; i != index; i = (i + 1) % ln {
+	for i := 0; i < ln; i++ {
+		log.Println("Backends in MFullLC:", backends[i].Ip, "has credit:", backends[i].CreditsBackend)
+		if backends[i].CreditsBackend <= 0 {
 			continue
 		}
-		if i == index+1 {
+		if i == (index+1)%ln {
 			backend2Return = &backends[i]
 			minReqs = backends[i].Reqs
 		}
@@ -115,6 +108,6 @@ func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
 			minReqs = backend2Return.Reqs
 		}
 	}
-
+	log.Println("Backend2Return in MFullLC:", backend2Return)
 	return backend2Return, nil
 }

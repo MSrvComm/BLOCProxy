@@ -50,6 +50,13 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if backend == nil {
+		log.Println("Error fetching backend")
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Fprint(w, "Error fetching backend")
+		return
+	}
+
 	r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
 	backend.Incr()                                  // a new request
 
@@ -65,12 +72,12 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if resp.StatusCode != 200 {
-		log.Println("Request was dropped") // debug
-		backend.Backoff()                  // backoff from this backend for a while
-		w.WriteHeader(resp.StatusCode)
-		fmt.Fprintf(w, "Bad reply from server")
-	}
+	// if resp.StatusCode != 200 {
+	// 	log.Println("Request was dropped") // debug
+	// 	backend.Backoff()                  // backoff from this backend for a while
+	// 	w.WriteHeader(resp.StatusCode)
+	// 	fmt.Fprintf(w, "Bad reply from server")
+	// }
 
 	// we always receive a new credit value from the backend
 	// it can be a 1 or a 0

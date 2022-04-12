@@ -4,8 +4,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/MSrvComm/MiCoProxy/internal/incoming"
 )
 
 // BackendSrv stores information for internal decision making
@@ -115,19 +113,26 @@ func (bm *backendSrvMap) SearchByHostIP(ip string) *BackendSrv {
 	return nil
 }
 
+func (bm *backendSrvMap) AddHost(svc string, backend *BackendSrv) {
+	bm.mu.Lock()
+	defer bm.mu.Unlock()
+	if _, ok := bm.mp[svc]; !ok {
+		bm.mp[svc] = []BackendSrv{*backend}
+	} else {
+		bm.mp[svc] = append(bm.mp[svc], *backend)
+	}
+}
+
 var (
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services
 	SvcList_g           = make([]string, 0)  // knows all service names
-	Downstream_svc_g    string
-	InProxy             *incoming.Proxy
+	Upstream_svc_g      string
 )
 
 const (
-	CLIENTPORT     = ":5000"
-	CREDIPORT      = ":5001"     // port on which the credit system is listening
-	PROXYINPORT    = ":62081"    // which port will the reverse proxy use for making outgoing request
-	PROXOUTPORT    = ":62082"    // which port the reverse proxy listens on
-	RESET_INTERVAL = time.Second // interval after which credit info of backend expires
+	CLIENTPORT  = ":5000"
+	PROXYINPORT = ":62081" // which port will the reverse proxy use for making outgoing request
+	PROXOUTPORT = ":62082" // which port the reverse proxy listens on
 )
