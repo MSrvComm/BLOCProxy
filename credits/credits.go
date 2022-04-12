@@ -42,12 +42,15 @@ func (cp *creditProxy) assignNewCredit(n int64) {
 
 func (cp *creditProxy) Run() {
 	for range cp.creditUpdate {
-		creditsTotal := incoming.Capacity_g
+		var creditsTotal float64
 		for i := range cp.backends {
 			creditsTotal += float64(cp.backends[i].CreditsBackend)
 		}
+		if creditsTotal == 0 {
+			creditsTotal = incoming.Capacity_g
+		}
 		log.Println("creditUpdate: total", creditsTotal) // debug
-		credits := int64(creditsTotal / float64(len(cp.backends)))
+		credits := int64(creditsTotal / float64(len(cp.frontends)))
 		if credits <= 0 {
 			credits = 1
 		}

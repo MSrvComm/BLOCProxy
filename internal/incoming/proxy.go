@@ -55,9 +55,9 @@ func (p *Proxy) add(n int64) {
 	atomic.AddInt64(&p.activeReqs, n)
 }
 
-// func (p *Proxy) count() int64 {
-// 	return atomic.LoadInt64(&p.activeReqs)
-// }
+func (p *Proxy) count() int64 {
+	return atomic.LoadInt64(&p.activeReqs)
+}
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Println("incoming")
@@ -99,6 +99,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	// w.Header().Set("CREDITS", credits)
 	// log.Println("Active Requests:", p.activeReqs, ", credits:", credits)
+	log.Println("p.Handle: ActiveConnections:", p.count())
 	p.add(-1)
 }
 
