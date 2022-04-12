@@ -31,12 +31,13 @@ func PopulateSvcList(svc string) bool {
 					WtAvgRTT: 0,
 					// credit for all backends is set to 1 at the start
 					// it's up to the backend to update it
-					Credits: 0,
+					CreditsBackend: 0,
 					RcvTime: time.Now(),
 				})
 		}
 		// add backend to the backend maps
 		globals.Svc2BackendSrvMap_g.Put(svc, backendSrvs)
+		time.Sleep(time.Nanosecond * 100)
 		return true
 	}
 	return false

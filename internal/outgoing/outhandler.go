@@ -85,5 +85,5 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
-	go backend.Update(start, uint64(credits), uint64(elapsed))
+	go backend.Update(start, int64(credits), uint64(elapsed))
 }

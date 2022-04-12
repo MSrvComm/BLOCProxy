@@ -7,14 +7,10 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
-	"os"
 	"sync/atomic"
-
-	"github.com/MSrvComm/MiCoProxy/globals"
-	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 )
 
-var Capacity_g = 10.0
+var Capacity_g float64
 
 type pTransport struct{}
 
@@ -34,26 +30,20 @@ func (t *pTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 type Proxy struct {
-	target     *url.URL
-	proxy      *httputil.ReverseProxy
-	activeReqs int64
+	target       *url.URL
+	proxy        *httputil.ReverseProxy
+	activeReqs   int64
+	creditUpdate chan bool
 }
 
-func NewProxy(target string) *Proxy {
+func NewProxy(target string, creditUpdate chan bool) *Proxy {
 	url, _ := url.Parse(target)
-	return &Proxy{target: url, proxy: httputil.NewSingleHostReverseProxy(url), activeReqs: 0}
-}
-
-func (p *Proxy) getUpstreamSvc() {
-	// get upstream service(s)
-	globals.Upstream_svc_g = os.Getenv("UPSTREAM")
-	// get list of upstream of pods
-	if globals.Upstream_svc_g != "" {
-		if !loadbalancer.PopulateSvcList(globals.Upstream_svc_g) {
-			log.Println("No pod for upstream found")
-		}
+	return &Proxy{
+		target:       url,
+		proxy:        httputil.NewSingleHostReverseProxy(url),
+		activeReqs:   0,
+		creditUpdate: creditUpdate,
 	}
-	globals.Upstream_svc_set_g = true
 }
 
 func (p *Proxy) add(n int64) {
@@ -66,10 +56,6 @@ func (p *Proxy) count() int64 {
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Println("incoming")
-
-	if !globals.Upstream_svc_set_g {
-		p.getUpstreamSvc()
-	}
 
 	// if there are too many requests then ask the client to retry
 	if p.count()+1 > int64(Capacity_g) {
@@ -103,4 +89,5 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("CREDITS", credits)
 	log.Println("Active Requests:", p.activeReqs, ", credits:", credits)
 	p.add(-1)
+	p.creditUpdate <- true // let the credit system know
 }
