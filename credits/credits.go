@@ -36,7 +36,7 @@ func (cp *creditProxy) assignNewCredit(n int64) {
 		return
 	}
 	cp.frontends[cp.lastIndex].ChangeCredit(n)
-	cp.sndCreditMsg(cp.lastIndex, 1)
+	cp.sndCreditMsg(cp.lastIndex, n)
 	cp.lastIndex = (cp.lastIndex + 1) % len(cp.frontends)
 }
 
@@ -56,7 +56,7 @@ func (cp *creditProxy) Run() {
 	}
 }
 
-func (cp *creditProxy) sndCreditMsg(index, credit int) {
+func (cp *creditProxy) sndCreditMsg(index int, credit int64) {
 	url := "http://" + cp.frontends[index].Ip + globals.CLIENTPORT + "/credits"
 	log.Println("SendCreditMessage:", url) // debug
 	body := []byte("")
@@ -65,7 +65,7 @@ func (cp *creditProxy) sndCreditMsg(index, credit int) {
 		log.Println("SendCreditMessage:", err.Error())
 		return
 	}
-	req.Header.Set("CREDIT", fmt.Sprintf("%d", credit))
+	req.Header.Set("CREDITS", fmt.Sprintf("%d", credit))
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -105,9 +105,11 @@ func (cp *creditProxy) Listen(w http.ResponseWriter, r *http.Request) {
 	var credits int
 	c := r.Header.Get("CREDITS")
 	if c == "" {
+		log.Println("Empty CREDITS received")
 		credits = 0
 	} else {
 		credits, _ = strconv.Atoi(c)
+		log.Println("CREDITS received:", credits)
 	}
 	cp.rcvCreditMsg(s, credits)
 	w.WriteHeader(http.StatusAccepted)
