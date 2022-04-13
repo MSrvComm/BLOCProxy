@@ -21,6 +21,8 @@ func main() {
 	fmt.Println("redirecting to:", globals.RedirectUrl_g)
 	fmt.Println("User ID:", os.Getuid())
 
+	globals.NumRetries_g, _ = strconv.Atoi(os.Getenv("RETRIES"))
+
 	// get capacity
 	incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
 

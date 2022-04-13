@@ -41,34 +41,46 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	if err == nil {
 		addService(svc)
 	}
+	var start time.Time
+	var resp *http.Response
+	var backend *globals.BackendSrv
 
-	backend, err := loadbalancer.NextEndpoint(svc)
-	if err != nil {
-		log.Println("Error fetching backend:", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, err.Error())
-		return
-	}
+	for i := 0; i < 3; i++ {
+		backend, err = loadbalancer.NextEndpoint(svc)
+		if err != nil {
+			log.Println("Error fetching backend:", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
 
-	r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
-	backend.Incr()                                  // a new request
+		r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
+		backend.Incr()                                  // a new request
 
-	client := &http.Client{Timeout: time.Second * 10}
-	start := time.Now()
-	resp, err := client.Do(r)
+		client := &http.Client{Timeout: time.Second * 10}
+		start = time.Now()
+		resp, err = client.Do(r)
 
-	backend.Decr() // close the request
+		backend.Decr() // close the request
 
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Fprint(w, err.Error())
-		return
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			fmt.Fprint(w, err.Error())
+			return
+		}
+
+		// we retry the request three times or we break out
+		if resp.StatusCode != 200 {
+			log.Println("Request was dropped; retying") // debug
+			backend.Backoff()                           // backoff from this backend for a while
+		} else {
+			break
+		}
 	}
 
 	if resp.StatusCode != 200 {
-		log.Println("Request was dropped") // debug
-		backend.Backoff()                  // backoff from this backend for a while
-		w.WriteHeader(resp.StatusCode)
+		log.Println("Request being dropped") // debug
+		w.WriteHeader(http.StatusInternalServerError)
 		fmt.Fprintf(w, "Bad reply from server")
 	}
 

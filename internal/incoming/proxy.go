@@ -63,7 +63,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	if p.count()+1 > int64(Capacity_g) {
 		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
 		log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusEarlyHints)
 		return
 	}
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
