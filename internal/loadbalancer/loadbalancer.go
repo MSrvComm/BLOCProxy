@@ -31,10 +31,7 @@ func GetBackendSvcList(svc string) ([]globals.BackendSrv, error) {
 					Reqs:     0,
 					LastRTT:  0,
 					WtAvgRTT: 0,
-					// credit for all backends is set to 1 at the start
-					// it's up to the backend to update it
-					Credits: 1,
-					RcvTime: time.Now(),
+					RcvTime:  time.Now(),
 				})
 		}
 		// add backend to the backend maps
@@ -61,6 +58,26 @@ func Random(svc string) (*globals.BackendSrv, error) {
 	return &backends[index], nil
 }
 
+func LeastConn(svc string) (*globals.BackendSrv, error) {
+	log.Println("Least Connection used") // debug
+	backends, err := GetBackendSvcList(svc)
+	if err != nil {
+		return nil, err
+	}
+
+	// P2C Least Conn
+	seed := time.Now().UTC().UnixNano()
+	rand.Seed(seed)
+	srv1 := &backends[rand.Intn(len(backends))]
+	srv2 := &backends[rand.Intn(len(backends))]
+
+	// var ip string
+	if srv1.Reqs < srv2.Reqs {
+		return srv1, nil
+	}
+	return srv2, nil
+}
+
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 	if defaultLBPolicy_g == "" {
 		defaultLBPolicy_g = os.Getenv("LBPolicy")
@@ -70,14 +87,6 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 		return Random(svc)
 	case "LeastConn":
 		return LeastConn(svc)
-	case "MLeastConn":
-		return MLeastConn(svc)
-	case "MLeastConnFull":
-		return MLeastConnFull(svc)
-	case "LeastTime":
-		return leasttime(svc)
-	case "P2CLeastTime":
-		return p2cLeastTime(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

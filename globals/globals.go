@@ -13,14 +13,12 @@ type BackendSrv struct {
 	RcvTime  time.Time
 	LastRTT  uint64
 	WtAvgRTT float64
-	Credits  uint64
 }
 
 func (backend *BackendSrv) Backoff() {
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
 	backend.RcvTime = time.Now() // now time since > globals.RESET_INTERVAL; refer to MLeastConn algo
-	backend.Credits = 0
 }
 
 func (backend *BackendSrv) Incr() {
@@ -32,18 +30,15 @@ func (backend *BackendSrv) Incr() {
 func (backend *BackendSrv) Decr() {
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
-	// we use up a credit whenever a new request is sent to that backend
-	backend.Credits--
 	backend.Reqs--
 }
 
-func (backend *BackendSrv) Update(start time.Time, credits uint64, elapsed uint64) {
+func (backend *BackendSrv) Update(start time.Time, elapsed uint64) {
 	backend.RW.Lock()
 	defer backend.RW.Unlock()
 	backend.RcvTime = start
 	backend.LastRTT = elapsed
 	backend.WtAvgRTT = backend.WtAvgRTT*0.5 + 0.5*float64(elapsed)
-	backend.Credits = credits
 }
 
 // Endpoints store information from the control plane
