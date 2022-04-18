@@ -7,6 +7,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"github.com/MSrvComm/MiCoProxy/pkg/credits"
 	"github.com/gin-gonic/gin"
 )
 
@@ -28,13 +29,13 @@ func (t *pTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 }
 
 type InProxy struct {
-	// target *url.URL
+	cp    *credits.CreditProxy
 	proxy *httputil.ReverseProxy
 }
 
-func NewInProxy(target string) *InProxy {
+func NewInProxy(target string, cp *credits.CreditProxy) *InProxy {
 	url, _ := url.Parse(target)
-	return &InProxy{proxy: httputil.NewSingleHostReverseProxy(url)}
+	return &InProxy{cp: cp, proxy: httputil.NewSingleHostReverseProxy(url)}
 }
 
 func (p *InProxy) Handle(c *gin.Context) {
@@ -48,4 +49,7 @@ func (p *InProxy) Handle(c *gin.Context) {
 	c.Writer.Header().Add("X-Forwarded-For", s)
 	p.proxy.Transport = &pTransport{}
 	p.proxy.ServeHTTP(c.Writer, c.Request)
+
+	// c.Writer.Header().Set("CREDITS", "1") // return a credit with every response
+	p.cp.AddFrontend(s)
 }

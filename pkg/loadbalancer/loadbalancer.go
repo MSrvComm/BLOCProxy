@@ -62,8 +62,8 @@ func (lb *LoadBalancer) NextEndpoint(svc string) (*backends.Backend, error) {
 		return lb.Random(svc)
 	case "LeastConn":
 		return lb.LeastConn(svc)
-	// case "MLeastConn":
-	// 	return MLeastConn(svc)
+	case "MLeastConn":
+		return lb.MLeastConn(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

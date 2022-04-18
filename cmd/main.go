@@ -3,10 +3,13 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 	"strconv"
 
+	"github.com/MSrvComm/MiCoProxy/pkg/backends"
 	"github.com/MSrvComm/MiCoProxy/pkg/config"
 	"github.com/MSrvComm/MiCoProxy/pkg/controllercomm"
+	"github.com/MSrvComm/MiCoProxy/pkg/credits"
 	"github.com/MSrvComm/MiCoProxy/pkg/incoming"
 	"github.com/MSrvComm/MiCoProxy/pkg/outgoing"
 
@@ -18,9 +21,15 @@ func main() {
 	redirecrUrl := "http://localhost:" + strconv.Itoa(conf.ClientPort)
 	log.Println("ClientPort:", conf.ClientPort)
 
-	inProxy := *incoming.NewInProxy(redirecrUrl)
+	capacity, _ := strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
+	backends.InitCredits = capacity
+
+	creditProxy := credits.NewCreditProxy(conf)
+
+	inProxy := *incoming.NewInProxy(redirecrUrl, creditProxy)
 	inRouter := gin.Default()
 	inRouter.NoRoute(inProxy.Handle)
+	inRouter.POST("/credits", creditProxy.Handle)
 	inRouter.GET("/", inProxy.Handle)
 
 	outProxy := *outgoing.NewOutProxy(conf)
@@ -31,9 +40,7 @@ func main() {
 	done := make(chan bool)
 	go controllercomm.RunComm(conf, done)
 
-	// go log.Fatal(inRouter.Run("localhost:" + strconv.Itoa(conf.Inport)))
-
-	// log.Fatal(outRouter.Run("localhost:" + strconv.Itoa(conf.Outport)))
+	go creditProxy.Run(done)
 
 	go func() {
 		iport := fmt.Sprintf(":%d", conf.Inport)

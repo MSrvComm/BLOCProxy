@@ -46,8 +46,10 @@ func (p *OutProxy) Handle(c *gin.Context) {
 
 	client := &http.Client{Timeout: time.Second * 10}
 	atomic.AddInt32(&backend.Reqs, 1)
+	atomic.AddInt32(&backend.Credits, -1) // reduce a credit whenever request is made
 	resp, err := client.Do(c.Request)
 	atomic.AddInt32(&backend.Reqs, -1)
+	// atomic.AddInt32(&backend.Credits, 1) // increase a credit whenever response is received
 
 	if err != nil {
 		c.Writer.WriteHeader(http.StatusInternalServerError)

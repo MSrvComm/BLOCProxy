@@ -71,7 +71,18 @@ func (c *Config) AddNewSvc(svc string, ips []string) {
 	c.BackendMap[svc] = backendMap
 }
 
-func (c *Config) containsSrv(svc, ip string) error {
+func (c *Config) ContainsSrv(ip string) (*backends.Backend, error) {
+	for svc := range c.BackendMap {
+		for i := range c.BackendMap[svc] {
+			if c.BackendMap[svc][i].Ip == ip {
+				return c.BackendMap[svc][i], nil
+			}
+		}
+	}
+	return nil, errors.New("no server found")
+}
+
+func (c *Config) AddSrv(svc, ip string) error {
 	if !c.SvcExists(svc) {
 		return errors.New("no such service")
 	}
@@ -126,7 +137,6 @@ func (c *Config) backendAlive(svc string, ips []string) {
 func (c *Config) UpdateMap(svc string, ips []string) {
 	c.backendAlive(svc, ips)
 	for i := range ips {
-		c.containsSrv(svc, ips[i])
+		c.AddSrv(svc, ips[i])
 	}
-	// c.AddNewSvc(svc, ips)
 }
