@@ -11,12 +11,12 @@ import (
 
 func (lb *LoadBalancer) LeastConn(svc string) (*backends.Backend, error) {
 	log.Println("Least Connection used") // debug
-	backendsArrPtr, err := lb.GetSvcList(svc)
+	backends, err := lb.GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
 
-	backends := *backendsArrPtr
+	// backends := *backendsArrPtr
 
 	if len(backends) <= 0 {
 		return nil, errors.New("LeastConn: no backend found")
@@ -39,11 +39,11 @@ func (lb *LoadBalancer) LeastConn(svc string) (*backends.Backend, error) {
 
 func (lb *LoadBalancer) MostCredits(svc string) (*backends.Backend, error) {
 	log.Println("Modified Least Connection used") // debug
-	backendsArrPtr, err := lb.GetSvcList(svc)
+	backends, err := lb.GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
-	backends := *backendsArrPtr
+	// backends := *backendsArrPtr
 
 	ln := len(backends)
 	rand.Seed(time.Now().UTC().UnixNano())

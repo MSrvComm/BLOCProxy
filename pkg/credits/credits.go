@@ -69,11 +69,11 @@ func (cp *CreditProxy) AddFrontend(ip string) {
 func (cp *CreditProxy) calculateCredits() int32 {
 	totalCredits := int32(0)
 	for svc := range cp.conf.BackendMap {
-		backendsMap := *cp.conf.BackendMap[svc]
-		// for i := range cp.conf.BackendMap[svc] {
-		for i := range backendsMap {
-			// totalCredits += cp.conf.BackendMap[svc][i].Credits
-			totalCredits += backendsMap[i].Credits
+		// backendsMap := *cp.conf.BackendMap[svc]
+		for i := range cp.conf.BackendMap[svc] {
+			// for i := range backendsMap {
+			totalCredits += cp.conf.BackendMap[svc][i].Credits
+			// totalCredits += backendsMap[i].Credits
 		}
 	}
 	if totalCredits == 0 {

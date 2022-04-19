@@ -30,7 +30,7 @@ func (lb *LoadBalancer) AddService(svc string) {
 	}
 }
 
-func (lb *LoadBalancer) GetSvcList(svc string) (*[]*backends.Backend, error) {
+func (lb *LoadBalancer) GetSvcList(svc string) ([]*backends.Backend, error) {
 	lb.AddService(svc)
 
 	svcMap, ok := lb.conf.BackendMap[svc]
@@ -42,13 +42,13 @@ func (lb *LoadBalancer) GetSvcList(svc string) (*[]*backends.Backend, error) {
 
 func (lb *LoadBalancer) Random(svc string) (*backends.Backend, error) {
 	log.Println("Random used") // debug
-	backendsArrPtr, err := lb.GetSvcList(svc)
+	backends, err := lb.GetSvcList(svc)
 	if err != nil {
 		log.Println("Random error", err.Error()) // debug
 		return nil, err
 	}
 
-	backends := *backendsArrPtr
+	// backends := *backendsArrPtr
 
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
