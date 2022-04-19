@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"sync/atomic"
 
 	"github.com/MSrvComm/MiCoProxy/pkg/credits"
 	"github.com/gin-gonic/gin"
@@ -40,6 +41,7 @@ func NewInProxy(target string, cp *credits.CreditProxy) *InProxy {
 
 func (p *InProxy) Handle(c *gin.Context) {
 	log.Println("incoming")
+	atomic.AddInt32(&p.cp.Reqs, 1) // add the active request to credit proxy too
 
 	s, _, err := net.SplitHostPort(c.Request.RemoteAddr)
 	if err != nil {
@@ -51,5 +53,6 @@ func (p *InProxy) Handle(c *gin.Context) {
 	p.proxy.ServeHTTP(c.Writer, c.Request)
 
 	// c.Writer.Header().Set("CREDITS", "1") // return a credit with every response
+	atomic.AddInt32(&p.cp.Reqs, -1) // remove the active request from credit proxy
 	p.cp.AddFrontend(s)
 }

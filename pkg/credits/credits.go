@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +29,7 @@ func newFrontEnd(ip string) *frontend {
 
 type CreditProxy struct {
 	RW          *sync.RWMutex
+	Reqs        int32 // active requests on the server, populated by InProxy
 	sendInteval time.Duration
 	upstream    string
 	conf        *config.Config
@@ -35,14 +37,15 @@ type CreditProxy struct {
 }
 
 func NewCreditProxy(conf *config.Config) *CreditProxy {
-	// interval, err := strconv.Atoi(os.Getenv("SEND_INTERVAL"))
-	// if err != nil {
-	// 	log.Fatal("valid interval required to send credits")
-	// }
+	interval, err := strconv.Atoi(os.Getenv("SEND_INTERVAL"))
+	if err != nil {
+		log.Fatal("valid interval required to send credits")
+	}
 	upstream := os.Getenv("UPSTREAM")
 	return &CreditProxy{
 		RW:          &sync.RWMutex{},
-		sendInteval: 2 * time.Second,
+		Reqs:        0,
+		sendInteval: time.Duration(interval) * time.Second,
 		upstream:    upstream,
 		conf:        conf,
 		Frontends:   make([]*frontend, 0),
@@ -66,13 +69,17 @@ func (cp *CreditProxy) AddFrontend(ip string) {
 func (cp *CreditProxy) calculateCredits() int32 {
 	totalCredits := int32(0)
 	for svc := range cp.conf.BackendMap {
-		for i := range cp.conf.BackendMap[svc] {
-			totalCredits += cp.conf.BackendMap[svc][i].Credits
+		backendsMap := *cp.conf.BackendMap[svc]
+		// for i := range cp.conf.BackendMap[svc] {
+		for i := range backendsMap {
+			// totalCredits += cp.conf.BackendMap[svc][i].Credits
+			totalCredits += backendsMap[i].Credits
 		}
 	}
 	if totalCredits == 0 {
 		totalCredits = int32(backends.InitCredits)
 	}
+	totalCredits -= cp.Reqs // adjust for the number of requests already in the system
 	return totalCredits
 }
 
@@ -88,8 +95,9 @@ func (cp *CreditProxy) updateBackend(ip, cr string) {
 		log.Println("updateBackend: converting credits", err)
 		return
 	}
-	log.Println("Credit Recieved:", credits)
-	backend.Credits = atomic.SwapInt32(&backend.Credits, int32(credits))
+	_ = atomic.SwapInt32(&backend.Credits, int32(credits))
+	log.Println("Updating Backend Credits: Received fron", ip, "updating:", backend.Ip,
+		"with:", credits, "has credits:", backend.Credits) // debug
 }
 
 func (cp *CreditProxy) Handle(c *gin.Context) {
@@ -112,6 +120,11 @@ func (cp *CreditProxy) sendCredits() {
 	}
 	cport := fmt.Sprintf(":%d", cp.conf.ClientPort)
 	totalCredits := cp.calculateCredits()
+	// early return if the node does not have any credit yet
+	// or doesn't know of any downstream services
+	if totalCredits == 0 {
+		return
+	}
 	ln := len(cp.Frontends)
 	if ln == 0 {
 		return
@@ -127,7 +140,14 @@ func (cp *CreditProxy) sendCredits() {
 	} else {
 		crDelta = cr
 	}
-	for i := range cp.Frontends {
+	rand.Seed(time.Now().UTC().UnixNano())
+	index := rand.Intn(ln)
+	i := index
+	for {
+		if totalCredits < crDelta {
+			log.Println("SendCreditMessage: Breaking out:", totalCredits)
+			break
+		}
 		url := "http://" + cp.Frontends[i].ip + cport + "/credits"
 		log.Println("SendCreditMessage:", url) // debug
 		body := []byte("")
@@ -138,17 +158,20 @@ func (cp *CreditProxy) sendCredits() {
 		}
 		log.Println("SendCreditMessage: credits:", crDelta) // debug
 		req.Header.Set("CREDITS", fmt.Sprintf("%d", crDelta))
-		totalCredits -= crDelta
-		if totalCredits <= 0 {
-			crDelta = 0
-		}
+
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		if err != nil {
 			log.Println("SendCreditMessage:", err.Error())
 			return
 		}
+		// update frontend's quota once request sent successfully
+		cp.Frontends[i].credits = crDelta
 		log.Println("SendCreditMessage: Response Status Code", resp.StatusCode)
+
+		totalCredits -= crDelta
+
+		i = (i + 1) % ln
 	}
 }
 

@@ -30,7 +30,7 @@ func (lb *LoadBalancer) AddService(svc string) {
 	}
 }
 
-func (lb *LoadBalancer) GetSvcList(svc string) ([]*backends.Backend, error) {
+func (lb *LoadBalancer) GetSvcList(svc string) (*[]*backends.Backend, error) {
 	lb.AddService(svc)
 
 	svcMap, ok := lb.conf.BackendMap[svc]
@@ -42,11 +42,13 @@ func (lb *LoadBalancer) GetSvcList(svc string) ([]*backends.Backend, error) {
 
 func (lb *LoadBalancer) Random(svc string) (*backends.Backend, error) {
 	log.Println("Random used") // debug
-	backends, err := lb.GetSvcList(svc)
+	backendsArrPtr, err := lb.GetSvcList(svc)
 	if err != nil {
 		log.Println("Random error", err.Error()) // debug
 		return nil, err
 	}
+
+	backends := *backendsArrPtr
 
 	seed := time.Now().UTC().UnixNano()
 	rand.Seed(seed)
@@ -62,8 +64,8 @@ func (lb *LoadBalancer) NextEndpoint(svc string) (*backends.Backend, error) {
 		return lb.Random(svc)
 	case "LeastConn":
 		return lb.LeastConn(svc)
-	case "MLeastConn":
-		return lb.MLeastConn(svc)
+	case "MostCredits":
+		return lb.MostCredits(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}

@@ -11,10 +11,12 @@ import (
 
 func (lb *LoadBalancer) LeastConn(svc string) (*backends.Backend, error) {
 	log.Println("Least Connection used") // debug
-	backends, err := lb.GetSvcList(svc)
+	backendsArrPtr, err := lb.GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
+
+	backends := *backendsArrPtr
 
 	if len(backends) <= 0 {
 		return nil, errors.New("LeastConn: no backend found")
@@ -33,25 +35,30 @@ func (lb *LoadBalancer) LeastConn(svc string) (*backends.Backend, error) {
 	return srv2, nil
 }
 
-var backend2Return *backends.Backend
+// var backend2Return *backends.Backend
 
-func (lb *LoadBalancer) MLeastConn(svc string) (*backends.Backend, error) {
+func (lb *LoadBalancer) MostCredits(svc string) (*backends.Backend, error) {
 	log.Println("Modified Least Connection used") // debug
-	backends, err := lb.GetSvcList(svc)
+	backendsArrPtr, err := lb.GetSvcList(svc)
 	if err != nil {
 		return nil, err
 	}
+	backends := *backendsArrPtr
 
 	ln := len(backends)
 	rand.Seed(time.Now().UTC().UnixNano())
 	index := rand.Intn(ln)
 
-	var maxCred int32
+	var chosenIndex int
 	ind := index
+	maxCred := int32(0)
+	backend2Return := backends[ind]
 	for {
+		log.Println("MostCredits: Looking at:", backends[ind].Ip, "has credits =", backends[ind].Credits) // debug
 		if maxCred < backends[ind].Credits {
 			maxCred = backends[ind].Credits
 			backend2Return = backends[ind]
+			chosenIndex = ind
 		}
 		ind = (ind + 1) % ln
 		if ind == index {
@@ -59,5 +66,6 @@ func (lb *LoadBalancer) MLeastConn(svc string) (*backends.Backend, error) {
 		}
 	}
 
+	log.Println("MostCredits:", chosenIndex, ", credits:", maxCred)
 	return backend2Return, nil
 }
