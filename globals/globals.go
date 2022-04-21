@@ -43,7 +43,7 @@ func (backend *BackendSrv) Update(start time.Time, credits uint64, elapsed uint6
 	backend.RcvTime = start
 	backend.LastRTT = elapsed
 	backend.WtAvgRTT = backend.WtAvgRTT*0.5 + 0.5*float64(elapsed)
-	backend.Credits = credits
+	backend.Credits += credits
 }
 
 // Endpoints store information from the control plane

@@ -73,16 +73,20 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// we retry the request three times or we break out
-		if resp.StatusCode != 200 {
+		if resp.StatusCode == http.StatusTooManyRequests {
 			backend.Backoff() // backoff from this backend for a while
 		} else {
 			break
 		}
 	}
 
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		log.Println("Request being dropped") // debug
-		w.WriteHeader(http.StatusGatewayTimeout)
+		if resp.StatusCode != http.StatusTooManyRequests {
+			w.WriteHeader(http.StatusGatewayTimeout)
+		} else {
+			w.WriteHeader(resp.StatusCode)
+		}
 		log.Println("err: StatusGatewayTimeout:", resp.StatusCode)
 		fmt.Fprintf(w, "Bad reply from server")
 	}
