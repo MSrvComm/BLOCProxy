@@ -45,11 +45,14 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	var resp *http.Response
 	var backend *globals.BackendSrv
 
+	client := &http.Client{Timeout: time.Second * 20}
+
 	for i := 0; i < 3; i++ {
 		backend, err = loadbalancer.NextEndpoint(svc)
 		if err != nil {
 			log.Println("Error fetching backend:", err)
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadGateway)
+			log.Println("err: StatusConflict:", err)
 			fmt.Fprint(w, err.Error())
 			return
 		}
@@ -57,22 +60,22 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		r.URL.Host = net.JoinHostPort(backend.Ip, port) // use the ip directly
 		backend.Incr()                                  // a new request
 
-		client := &http.Client{Timeout: time.Second * 10}
 		start = time.Now()
 		resp, err = client.Do(r)
 
 		backend.Decr() // close the request
 
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
+			log.Println("err: StatusBadRequest:", err)
 			fmt.Fprint(w, err.Error())
 			return
 		}
 
 		// we retry the request three times or we break out
 		if resp.StatusCode != 200 {
-			log.Println("Request was dropped; retying") // debug
-			backend.Backoff()                           // backoff from this backend for a while
+			log.Println("Request was dropped; retrying") // debug
+			backend.Backoff()                            // backoff from this backend for a while
 		} else {
 			break
 		}
@@ -80,7 +83,8 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	if resp.StatusCode != 200 {
 		log.Println("Request being dropped") // debug
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusGatewayTimeout)
+		log.Println("err: StatusGatewayTimeout:", resp.StatusCode)
 		fmt.Fprintf(w, "Bad reply from server")
 	}
 
