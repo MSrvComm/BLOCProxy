@@ -72,12 +72,6 @@ func NextEndpoint(svc string) (*globals.BackendSrv, error) {
 		return LeastConn(svc)
 	case "MLeastConn":
 		return MLeastConn(svc)
-	case "MLeastConnFull":
-		return MLeastConnFull(svc)
-	case "LeastTime":
-		return leasttime(svc)
-	case "P2CLeastTime":
-		return p2cLeastTime(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
