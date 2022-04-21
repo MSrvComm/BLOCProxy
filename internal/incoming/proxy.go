@@ -82,7 +82,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	// the probability of a credit being sent is based on how loaded the system is right now
 	// capacity_g hard codes the capacity of the system for the moment
 	var credits string
-	if rand.Float64() < float64(p.count())/Capacity_g {
+	if rand.Float64() < float64(p.count())/(0.8*Capacity_g) {
 		credits = "0"
 	} else {
 		credits = "1"
