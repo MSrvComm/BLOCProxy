@@ -62,8 +62,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	// if there are too many requests then ask the client to retry
 	if p.count()+1 > int64(Capacity_g) {
 		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
-		log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
-		w.WriteHeader(http.StatusEarlyHints)
+		// log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
+		w.WriteHeader(http.StatusTooManyRequests)
 		return
 	}
 	s, _, err := net.SplitHostPort(r.RemoteAddr)

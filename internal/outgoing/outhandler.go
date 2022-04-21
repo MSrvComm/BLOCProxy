@@ -74,8 +74,7 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 		// we retry the request three times or we break out
 		if resp.StatusCode != 200 {
-			log.Println("Request was dropped; retrying") // debug
-			backend.Backoff()                            // backoff from this backend for a while
+			backend.Backoff() // backoff from this backend for a while
 		} else {
 			break
 		}
