@@ -1,6 +1,7 @@
 package incoming
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -63,7 +64,8 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	if p.count()+1 > int64(Capacity_g) {
 		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
 		log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
-		w.WriteHeader(http.StatusEarlyHints)
+		w.WriteHeader(http.StatusTooManyRequests)
+		fmt.Fprint(w, "Retry")
 		return
 	}
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -89,6 +91,5 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("CREDITS", credits)
-	log.Println("Active Requests:", p.activeReqs, ", credits:", credits)
 	p.add(-1)
 }

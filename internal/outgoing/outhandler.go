@@ -48,6 +48,7 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 	client := &http.Client{Timeout: time.Second * 20}
 
 	for i := 0; i < 3; i++ {
+		start := time.Now() // we want to see how long a request spends if rejected
 		backend, err = loadbalancer.NextEndpoint(svc)
 		if err != nil {
 			log.Println("Error fetching backend:", err)
@@ -66,16 +67,19 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 		backend.Decr() // close the request
 
 		if err != nil {
+			elapsed := time.Since(start) // how long the rejection took
 			w.WriteHeader(http.StatusBadRequest)
-			log.Println("err: StatusBadRequest:", err)
+			log.Println("err: StatusBadRequest:", err, "i:", i, "elapsed:", elapsed) // debug)
 			fmt.Fprint(w, err.Error())
 			return
 		}
 
 		// we retry the request three times or we break out
 		if resp.StatusCode != 200 {
-			log.Println("Request was dropped; retrying") // debug
-			backend.Backoff()                            // backoff from this backend for a while
+			elapsed := time.Since(start) // how long the rejection took
+			log.Println("Request was dropped; retrying, elapsed:", elapsed,
+				"response code:", resp.StatusCode) // debug
+			backend.Backoff() // backoff from this backend for a while
 		} else {
 			break
 		}
