@@ -46,7 +46,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 	for {
 		ts := time.Since(backends[index1].RcvTime)
-		if backends[index1].Credits > 0 || ts > globals.RESET_INTERVAL {
+		if ts > globals.RESET_INTERVAL || backends[index1].Credits > 0 {
 			break
 		}
 		index1 = rand.Intn(ln)
@@ -56,7 +56,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 	for {
 		ts := time.Since(backends[index2].RcvTime)
-		if backends[index2].Credits > 0 || ts > globals.RESET_INTERVAL {
+		if ts > globals.RESET_INTERVAL || backends[index2].Credits > 0 {
 			break
 		}
 		index2 = rand.Intn(ln)
