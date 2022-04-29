@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/MSrvComm/MiCoProxy/controllercomm"
 	"github.com/MSrvComm/MiCoProxy/globals"
@@ -22,9 +23,16 @@ func main() {
 	fmt.Println("User ID:", os.Getuid())
 
 	globals.NumRetries_g, _ = strconv.Atoi(os.Getenv("RETRIES"))
+	reset, _ := strconv.Atoi(os.Getenv("RESET"))
+	globals.ResetInterval_g = time.Duration(reset) * time.Microsecond
 
 	// get capacity
-	incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
+	// incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
+	incoming.Capacity_g, _ = strconv.ParseInt(os.Getenv("CAPACITY"), 10, 64)
+	// capacity has been set in the env; do not reset
+	if incoming.Capacity_g != 0 {
+		incoming.RunAvg_g = false
+	}
 
 	// incoming request handling
 	proxy := incoming.NewProxy(globals.RedirectUrl_g)

@@ -3,15 +3,24 @@ package incoming
 import (
 	"fmt"
 	"log"
+	"math"
 	"math/rand"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"sync/atomic"
+	"time"
 )
 
-var Capacity_g = 10.0
+var (
+	Capacity_g int64
+	RunAvg_g   = true // average has not been set in env
+	Start_g    = time.Now()
+	timeSet_g  = false
+	count      = 0
+	avg_g      = float64(0)
+)
 
 type pTransport struct{}
 
@@ -60,13 +69,35 @@ func (p *Proxy) count() int64 {
 
 func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	log.Println("incoming")
-	// if there are too many requests then ask the client to retry
-	if p.count()+1 > int64(Capacity_g) {
-		// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
-		log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
-		w.WriteHeader(http.StatusTooManyRequests)
-		fmt.Fprint(w, "Retry")
-		return
+	if !timeSet_g {
+		timeSet_g = true
+		Start_g = time.Now()
+	}
+
+	// avg_g = alpha_g*avg_g + (1-alpha_g)*float64(p.count())
+	count++
+	avg_g = avg_g + (float64((p.count()+1))-avg_g)/float64(count)
+	log.Println("Avg is:", avg_g) // debug
+	if RunAvg_g && time.Since(Start_g) > 30*time.Second {
+		Capacity_g = int64(math.Ceil(avg_g))
+		log.Println("Setting Capacity to:", avg_g) // debug
+		// reset all counters
+		log.Println("Resetting counters") // debug
+		Start_g = time.Now()
+		count = 0
+		avg_g = 0
+	}
+
+	// not checking admission if capacity not set
+	if Capacity_g != 0 {
+		// if there are too many requests then ask the client to retry
+		if p.count()+1 > int64(Capacity_g) {
+			// log.Println(p.activeReqs, Capacity_g, "Sending Early Hints")
+			log.Println(p.activeReqs, Capacity_g, "Rejecting Request")
+			w.WriteHeader(http.StatusTooManyRequests)
+			fmt.Fprint(w, "Retry")
+			return
+		}
 	}
 	s, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -84,7 +115,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	// the probability of a credit being sent is based on how loaded the system is right now
 	// capacity_g hard codes the capacity of the system for the moment
 	var credits string
-	if rand.Float64() < float64(p.count())/(0.8*Capacity_g) {
+	if rand.Float64() < float64(p.count())/(0.8*float64(Capacity_g)) {
 		credits = "0"
 	} else {
 		credits = "1"
