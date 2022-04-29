@@ -46,7 +46,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 	for {
 		ts := time.Since(backends[index1].RcvTime)
-		if ts > globals.RESET_INTERVAL || backends[index1].Credits > 0 {
+		if ts > globals.ResetInterval_g || backends[index1].Credits > 0 {
 			break
 		}
 		index1 = rand.Intn(ln)
@@ -56,7 +56,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 	for {
 		ts := time.Since(backends[index2].RcvTime)
-		if ts > globals.RESET_INTERVAL || backends[index2].Credits > 0 {
+		if ts > globals.ResetInterval_g || backends[index2].Credits > 0 {
 			break
 		}
 		index2 = rand.Intn(ln)
@@ -75,7 +75,7 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 
 	// if credits have expired then we want to send a single probe
 	ts := time.Since(backend2Return.RcvTime)
-	if backend2Return.Credits <= 0 && ts > globals.RESET_INTERVAL {
+	if backend2Return.Credits <= 0 && ts > globals.ResetInterval_g {
 		backend2Return.RcvTime = time.Now()
 	}
 
@@ -103,7 +103,7 @@ func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
 
 	for i := index + 1; i != index; i++ {
 		ts := time.Since(backends[i].RcvTime)
-		if backends[i].Credits <= 0 && ts < globals.RESET_INTERVAL {
+		if backends[i].Credits <= 0 && ts < globals.ResetInterval_g {
 			continue
 		}
 		if i == index+1 {

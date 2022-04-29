@@ -5,7 +5,7 @@ WORKDIR /build
 ADD . /build/
 
 RUN apk add git
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o micoproxy ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -buildvcs=false -a -installsuffix cgo -ldflags '-extldflags "-static"' -o micoproxy ./cmd
 
 FROM scratch
 

@@ -47,7 +47,7 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	client := &http.Client{Timeout: time.Second * 20}
 
-	for i := 0; i < 3; i++ {
+	for i := 0; i < globals.NumRetries_g; i++ {
 		backend, err = loadbalancer.NextEndpoint(svc)
 		if err != nil {
 			log.Println("Error fetching backend:", err)
