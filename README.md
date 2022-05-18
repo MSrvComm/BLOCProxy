@@ -1,4 +1,4 @@
-# Simple MiCoProxy Sidecar Proxy
+# BLOC: A Sidecar Proxy
 
 The code is based off this [repo](https://github.com/ymedialabs/ReverseProxy) and this [talk](https://www.youtube.com/watch?v=tWSmUsYLiE4)
 
