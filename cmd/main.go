@@ -11,6 +11,7 @@ import (
 	"github.com/MSrvComm/MiCoProxy/controllercomm"
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/incoming"
+	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 	"github.com/MSrvComm/MiCoProxy/internal/outgoing"
 	"github.com/gorilla/mux"
 )
@@ -22,7 +23,12 @@ func main() {
 	fmt.Println("redirecting to:", globals.RedirectUrl_g)
 	fmt.Println("User ID:", os.Getuid())
 
-	globals.NumRetries_g, _ = strconv.Atoi(os.Getenv("RETRIES"))
+	loadbalancer.DefaultLBPolicy_g = os.Getenv("LBPolicy")
+	if loadbalancer.DefaultLBPolicy_g == "MLeastConn" {
+		globals.NumRetries_g, _ = strconv.Atoi(os.Getenv("RETRIES"))
+	} else {
+		globals.NumRetries_g = 1
+	}
 	reset, _ := strconv.Atoi(os.Getenv("RESET"))
 	globals.ResetInterval_g = time.Duration(reset) * time.Microsecond
 

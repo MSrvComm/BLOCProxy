@@ -11,6 +11,8 @@ import (
 	"net/url"
 	"sync/atomic"
 	"time"
+
+	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
 )
 
 var (
@@ -78,7 +80,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	count++
 	avg_g = avg_g + (float64((p.count()+1))-avg_g)/float64(count)
 	log.Println("Avg is:", avg_g) // debug
-	if RunAvg_g && time.Since(Start_g) > 30*time.Second {
+	if loadbalancer.DefaultLBPolicy_g == "MLeastConn" && RunAvg_g && time.Since(Start_g) > 30*time.Second {
 		Capacity_g = int64(math.Ceil(avg_g))
 		log.Println("Setting Capacity to:", avg_g) // debug
 		// reset all counters

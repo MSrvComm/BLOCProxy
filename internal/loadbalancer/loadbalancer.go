@@ -10,7 +10,7 @@ import (
 	"github.com/MSrvComm/MiCoProxy/globals"
 )
 
-var defaultLBPolicy_g string
+var DefaultLBPolicy_g string
 
 const BitsPerWord = 32 << (^uint(0) >> 63)
 const MaxInt = 1<<(BitsPerWord-1) - 1
@@ -62,22 +62,22 @@ func Random(svc string) (*globals.BackendSrv, error) {
 }
 
 func NextEndpoint(svc string) (*globals.BackendSrv, error) {
-	if defaultLBPolicy_g == "" {
-		defaultLBPolicy_g = os.Getenv("LBPolicy")
+	if DefaultLBPolicy_g == "" {
+		DefaultLBPolicy_g = os.Getenv("LBPolicy")
 	}
-	switch defaultLBPolicy_g {
+	switch DefaultLBPolicy_g {
 	case "Random":
 		return Random(svc)
 	case "LeastConn":
 		return LeastConn(svc)
 	case "MLeastConn":
 		return MLeastConn(svc)
-	case "MLeastConnFull":
-		return MLeastConnFull(svc)
-	case "LeastTime":
-		return leasttime(svc)
-	case "P2CLeastTime":
-		return p2cLeastTime(svc)
+	// case "MLeastConnFull":
+	// 	return MLeastConnFull(svc)
+	// case "LeastTime":
+	// 	return leasttime(svc)
+	// case "P2CLeastTime":
+	// 	return p2cLeastTime(svc)
 	default:
 		return nil, errors.New("no endpoint found")
 	}
