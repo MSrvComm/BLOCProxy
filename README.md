@@ -21,7 +21,7 @@ sudo docker build -t ratnadeepb/blocproxy:latest .
 sudo docker push ratnadeepb/blocproxy:latest
 ```
 
-## Running the MiCo tool
+## Running the BLOC tool
 
 ```bash
 kubectl apply -f deployment.yaml
@@ -33,5 +33,5 @@ All incoming requests to the pod are routed to port `62081` and all outgoing req
 
 ## Note on commit formatting
 
-We have now adopted the practice of adding a `+` for any commit that adds lines or functionality and a `-` for any commit that removes lines or functionality. However, as of now, this is on a best effort basis.
+We have now adopted the practice of adding a `+` for a commit that adds a feature add and a `-` for any commit that removes functionality. However, as of now, this is on a best effort basis.
 
