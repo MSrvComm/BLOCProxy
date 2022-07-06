@@ -29,7 +29,7 @@ func LeastConn(svc string) (*globals.BackendSrv, error) {
 }
 
 func MLeastConn(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
+	log.Println("MLeast Connection used") // debug
 	backends, err := GetBackendSvcList(svc)
 	if err != nil {
 		return nil, err
@@ -77,43 +77,6 @@ func MLeastConn(svc string) (*globals.BackendSrv, error) {
 	ts := time.Since(backend2Return.RcvTime)
 	if backend2Return.Credits <= 0 && ts > globals.ResetInterval_g {
 		backend2Return.RcvTime = time.Now()
-	}
-
-	return backend2Return, nil
-}
-
-func MLeastConnFull(svc string) (*globals.BackendSrv, error) {
-	log.Println("Least Connection used") // debug
-	backends, err := GetBackendSvcList(svc)
-	if err != nil {
-		return nil, err
-	}
-
-	// P2C Least Conn
-	seed := time.Now().UTC().UnixNano()
-	rand.Seed(seed)
-	ln := len(backends)
-
-	// we select two servers if they have a credit
-	// or it has been more than a second since the last response
-	index := rand.Intn(ln)
-
-	var backend2Return *globals.BackendSrv
-	var minReqs int64
-
-	for i := index + 1; i != index; i++ {
-		ts := time.Since(backends[i].RcvTime)
-		if backends[i].Credits <= 0 && ts < globals.ResetInterval_g {
-			continue
-		}
-		if i == index+1 {
-			backend2Return = &backends[i]
-			minReqs = backends[i].Reqs
-		}
-		if backends[i].Reqs < minReqs {
-			backend2Return = &backends[i]
-			minReqs = backend2Return.Reqs
-		}
 	}
 
 	return backend2Return, nil
