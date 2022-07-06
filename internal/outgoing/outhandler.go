@@ -94,7 +94,7 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	// we always receive a new credit value from the backend
 	// it can be a 1 or a 0
-	credits, _ := strconv.Atoi(resp.Header.Get("CREDITS"))
+	chip, _ := strconv.Atoi(resp.Header.Get("CHIP"))
 	elapsed := time.Since(start).Nanoseconds()
 
 	for key, values := range resp.Header {
@@ -105,5 +105,5 @@ func HandleOutgoing(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
-	go backend.Update(start, uint64(credits), uint64(elapsed))
+	go backend.Update(start, uint64(chip), uint64(elapsed))
 }

@@ -110,19 +110,23 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Forwarded-For", s)
 
 	p.proxy.Transport = &pTransport{}
+	start := time.Now()
 	p.proxy.ServeHTTP(w, r)
+	elapsed := time.Since(start)
+	msg := fmt.Sprintf("timing: elapsed: %v, count: %d", elapsed, p.count())
+	log.Println(msg) // debug
 
 	// we can send a 0 or a 1 credit back
 	// if the backend receives 0, they can't send another request for a second
 	// the probability of a credit being sent is based on how loaded the system is right now
 	// capacity_g hard codes the capacity of the system for the moment
-	var credits string
+	var chip string
 	if rand.Float64() < float64(p.count())/(0.8*float64(Capacity_g)) {
-		credits = "0"
+		chip = "0"
 	} else {
-		credits = "1"
+		chip = "1"
 	}
 
-	w.Header().Set("CREDITS", credits)
+	w.Header().Set("CHIP", chip)
 	p.add(-1)
 }
