@@ -52,15 +52,6 @@ func NewProxy(target string) *Proxy {
 	return &Proxy{target: url, proxy: httputil.NewSingleHostReverseProxy(url), activeReqs: 0}
 }
 
-// func (p *Proxy) OnStateChange(conn net.Conn, state http.ConnState) {
-// 	switch state {
-// 	case http.StateNew:
-// 		p.add(1)
-// 	case http.StateHijacked, http.StateClosed:
-// 		p.add(-1)
-// 	}
-// }
-
 func (p *Proxy) add(n int64) {
 	atomic.AddInt64(&p.activeReqs, n)
 }
