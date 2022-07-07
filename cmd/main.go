@@ -12,6 +12,7 @@ import (
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/incoming"
 	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
+	"github.com/MSrvComm/MiCoProxy/internal/logger"
 	"github.com/MSrvComm/MiCoProxy/internal/outgoing"
 	"github.com/gorilla/mux"
 )
@@ -27,22 +28,38 @@ func main() {
 	if loadbalancer.DefaultLBPolicy_g == "MLeastConn" {
 		globals.NumRetries_g, _ = strconv.Atoi(os.Getenv("RETRIES"))
 		// get capacity
-		// incoming.Capacity_g, _ = strconv.ParseFloat(os.Getenv("CAPACITY"), 64)
-		incoming.Capacity_g, _ = strconv.ParseInt(os.Getenv("CAPACITY"), 10, 64)
+		capa, err := strconv.ParseInt(os.Getenv("CAPACITY"), 10, 64)
+		if err != nil {
+			globals.Capacity_g = 0.0
+		} else {
+			globals.Capacity_g = uint64(capa)
+			globals.CapacityDefined = true
+		}
+		// var err error
+		globals.SLO, err = strconv.ParseFloat(os.Getenv("SLO"), 64)
+		if err != nil {
+			globals.SLO = 0.0
+		}
 	} else {
 		globals.NumRetries_g = 1
-		incoming.Capacity_g = 0
+		globals.SLO = 1.0
+		// globals.Capacity_g = 0
 	}
 	reset, _ := strconv.Atoi(os.Getenv("RESET"))
 	globals.ResetInterval_g = time.Duration(reset) * time.Microsecond
 
-	// capacity has been set in the env; do not reset
-	if incoming.Capacity_g != 0 {
-		incoming.RunAvg_g = false
-	}
+	// // capacity has been set in the env; do not reset
+	// if globals.Capacity_g != 0 {
+	// 	incoming.RunAvg_g = false
+	// }
+
+	data := make(chan logger.Data, 100)
+	qchan := make(chan int64, 100)
+	schan := make(chan bool, 100)
+	dchan := make(chan bool, 100)
 
 	// incoming request handling
-	proxy := incoming.NewProxy(globals.RedirectUrl_g)
+	proxy := incoming.NewProxy(globals.RedirectUrl_g, data, schan, dchan, qchan)
 	inMux := mux.NewRouter()
 	inMux.PathPrefix("/").HandlerFunc(proxy.Handle)
 
@@ -54,6 +71,14 @@ func main() {
 	done := make(chan bool)
 	defer close(done)
 	go controllercomm.RunComm(done)
+
+	// Machine Learning Thread
+	// mlt := logger.NewML(data)
+	// go mlt.Run()
+
+	// Queuing Theory Thread
+	qtt := logger.NewQT(schan, dchan, qchan)
+	go qtt.Run()
 
 	// start the proxy services
 	go func() {

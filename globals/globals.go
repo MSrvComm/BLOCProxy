@@ -95,17 +95,21 @@ func (bm *backendSrvMap) Put(svc string, backends []BackendSrv) {
 }
 
 var (
+	Capacity_g          uint64 = 0
+	SLO                 float64
+	CapacityDefined     = false // capacity has not been set
+	HardCapaValReached  = false // maximum capacity has been found
 	RedirectUrl_g       string
 	Svc2BackendSrvMap_g = newBackendSrvMap() // holds all backends for services
 	Endpoints_g         = newEndpointsMap()  // all endpoints for all services
 	SvcList_g           = make([]string, 0)  // knows all service names
 	NumRetries_g        int                  // how many times should a request be retried
-	ResetInterval_g time.Duration
+	ResetInterval_g     time.Duration
 )
 
 const (
-	CLIENTPORT     = ":5000"
-	PROXYINPORT    = ":62081"    // which port will the reverse proxy use for making outgoing request
-	PROXOUTPORT    = ":62082"    // which port the reverse proxy listens on
+	CLIENTPORT  = ":5000"
+	PROXYINPORT = ":62081" // which port will the reverse proxy use for making outgoing request
+	PROXOUTPORT = ":62082" // which port the reverse proxy listens on
 	// RESET_INTERVAL = time.Second // interval after which credit info of backend expires
 )
