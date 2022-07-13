@@ -6,7 +6,7 @@ WORKDIR /build
 COPY . .
 
 RUN apk add git
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags '-extldflags "-static"' -o blocproxy ./cmd
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -ldflags --buildvcs=false '-extldflags "-static"' -o blocproxy ./cmd
 
 FROM scratch
 
