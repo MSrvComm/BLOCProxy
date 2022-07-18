@@ -95,7 +95,7 @@ func (bm *backendSrvMap) Put(svc string, backends []BackendSrv) {
 }
 
 var (
-	Capacity_g          uint64 = 0
+	Capacity_g          uint64 = 1
 	SLO                 float64
 	CapacityDefined     = false // capacity has not been set
 	HardCapaValReached  = false // maximum capacity has been found
