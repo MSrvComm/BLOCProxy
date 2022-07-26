@@ -14,7 +14,6 @@ import (
 
 	"github.com/MSrvComm/MiCoProxy/globals"
 	"github.com/MSrvComm/MiCoProxy/internal/loadbalancer"
-	"github.com/MSrvComm/MiCoProxy/internal/logger"
 )
 
 // var (
@@ -48,22 +47,22 @@ type Proxy struct {
 	target     *url.URL
 	proxy      *httputil.ReverseProxy
 	activeReqs int64
-	data       chan logger.Data
 	schan      chan bool
 	qchan      chan int64
 	dchan      chan bool
+	echan      chan time.Duration
 }
 
-func NewProxy(target string, data chan logger.Data, schan, dchan chan bool, qchan chan int64) *Proxy {
+func NewProxy(target string, schan, dchan chan bool, qchan chan int64, echan chan time.Duration) *Proxy {
 	url, _ := url.Parse(target)
 	return &Proxy{
 		target:     url,
 		proxy:      httputil.NewSingleHostReverseProxy(url),
 		activeReqs: 0,
-		data:       data,
 		schan:      schan,
 		qchan:      qchan,
 		dchan:      dchan,
+		echan:      echan,
 	}
 }
 
@@ -96,6 +95,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 	// 	avg_g = 0
 	// }
 
+	accepted := false
 	// not checking admission if capacity not set or loadbalancer is not "MLeastConn"
 	if loadbalancer.DefaultLBPolicy_g == "MLeastConn" && globals.Capacity_g != 0 {
 		// if there are too many requests then ask the client to retry
@@ -112,16 +112,17 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 	}
 	p.add(1)
-	go func() { p.schan <- true }()      // queueing theory
-	go func() { p.qchan <- p.count() }() // queueing theory
+	go func() { p.schan <- true }()
+	go func() { p.qchan <- p.count() }()
 	log.Println("accepted")
+	accepted = true
 	w.Header().Set("X-Forwarded-For", s)
 
 	p.proxy.Transport = &pTransport{}
-	start := time.Now() // machine learning
+	start := time.Now()
 	p.proxy.ServeHTTP(w, r)
-	elapsed := time.Since(start) // machine learning
-	// go func() { p.data <- logger.Data{Count: p.count(), Elapsed: elapsed} }() // machine learning
+	elapsed := time.Since(start)
+	go func() { p.echan <- elapsed }()
 	msg := fmt.Sprintf("timing: elapsed: %v, count: %d", elapsed, p.count())
 	log.Println(msg) // debug
 
@@ -138,5 +139,7 @@ func (p *Proxy) Handle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("CHIP", chip)
 	p.add(-1)
-	go func() { p.dchan <- true }() // queueing theory
+	if accepted {
+		go func() { p.dchan <- true }() // queueing theory
+	}
 }
