@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -19,10 +18,10 @@ import (
 
 func main() {
 	globals.RedirectUrl_g = "http://localhost" + globals.CLIENTPORT
-	fmt.Println("Input Port", globals.PROXYINPORT)
-	fmt.Println("Output Port", globals.PROXOUTPORT)
-	fmt.Println("redirecting to:", globals.RedirectUrl_g)
-	fmt.Println("User ID:", os.Getuid())
+	log.Println("Input Port", globals.PROXYINPORT)
+	log.Println("Output Port", globals.PROXOUTPORT)
+	log.Println("redirecting to:", globals.RedirectUrl_g)
+	log.Println("User ID:", os.Getuid())
 
 	loadbalancer.DefaultLBPolicy_g = os.Getenv("LBPolicy")
 	if loadbalancer.DefaultLBPolicy_g == "MLeastConn" {
